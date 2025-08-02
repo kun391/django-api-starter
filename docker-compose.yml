@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DJANGO_SETTINGS_MODULE: settings.local
+    env_file:
+      - .env
+    working_dir: /app
+    command: ["./bin/run_local.sh"]
+    ports:
+      - "5001:8000"
+      - "5555:5555"  # Celery Flower
+    volumes:
+      - .:/app
+      - static_volume:/app/static
+      - media_volume:/app/media
+    depends_on:
+      - db
+      - rabbitmq
+    environment:
+      - DJANGO_SETTINGS_MODULE=settings.local
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/django_api
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672/
+    networks:
+      - django_network
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=django_api
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - django_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "15672:15672"  # Management UI
+      - "5672:5672"    # AMQP
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+      - RABBITMQ_DEFAULT_VHOST=/
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - django_network
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  static_volume:
+  media_volume:
+
+networks:
+  django_network:
+    driver: bridge

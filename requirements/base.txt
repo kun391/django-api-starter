@@ -1,0 +1,27 @@
+# Django and core dependencies
+Django>=5.0,<5.1
+djangorestframework>=3.14.0,<3.15.0
+django-cors-headers>=4.3.0,<4.4.0
+django-filter>=23.0,<24.0
+django-extensions>=3.2.0,<3.3.0
+
+# Database
+psycopg2-binary>=2.9.0,<3.0.0
+dj-database-url>=2.0.0,<3.0.0
+
+# Background tasks
+celery>=5.3.0,<5.4.0
+redis>=5.0.0,<5.1.0
+
+# API documentation
+drf-spectacular>=0.26.0,<0.27.0
+
+# Environment and configuration
+python-decouple>=3.8.0,<3.9.0
+whitenoise>=6.6.0,<6.7.0
+
+# Production server
+gunicorn>=21.2.0,<21.3.0
+
+# Monitoring and logging
+sentry-sdk>=1.40.0,<1.41.0
