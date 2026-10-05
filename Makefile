@@ -19,7 +19,7 @@ NC := \033[0m
 # Phony targets
 .PHONY: help up down build start stop restart logs ps exec \
         check format test migrate makemigrations dbshell clean prune \
-        worker beat flower shell collectstatic
+        worker beat flower shell collectstatic architecture module ai-context
 
 # Default target
 help:
@@ -119,6 +119,17 @@ lint:
 	@echo -e "$(GREEN)Running linting checks...$(NC)"
 	$(COMPOSE_EXEC) web ruff check . --fix
 
+architecture:
+	$(COMPOSE_EXEC) web python scripts/check_architecture.py
+
+module:
+	@test -n "$(name)" || (echo "name is required"; exit 1)
+	$(COMPOSE_EXEC) web python scripts/create_module.py "$(name)" --type "$(or $(type),crud)"
+
+ai-context:
+	@test -n "$(name)" || (echo "name is required"; exit 1)
+	$(COMPOSE_EXEC) web python scripts/build_ai_context.py "$(name)"
+
 # Database operations
 migrate:
 	$(COMPOSE_EXEC) web python manage.py migrate
@@ -145,18 +156,16 @@ reset-db:
 
 # Testing
 test:
-	$(COMPOSE_EXEC) web python manage.py test --parallel
+	$(COMPOSE_EXEC) web pytest -n auto
 
 test-linear:
-	$(COMPOSE_EXEC) web python manage.py test
+	$(COMPOSE_EXEC) web pytest
 
 test-%:
-	$(COMPOSE_EXEC) web python manage.py test --pattern="$*"
+	$(COMPOSE_EXEC) web pytest -k "$*"
 
 coverage:
-	$(COMPOSE_EXEC) web coverage run --source='.' manage.py test
-	$(COMPOSE_EXEC) web coverage report
-	$(COMPOSE_EXEC) web coverage html
+	$(COMPOSE_EXEC) web pytest --cov=apps --cov-report=term-missing --cov-report=html
 
 # Background tasks
 worker:
