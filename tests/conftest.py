@@ -1,11 +1,8 @@
-"""
-Pytest configuration for Django API Template.
-"""
+"""Pytest configuration for Django API Template."""
 
 import pytest
-from django.conf import settings
-from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -20,9 +17,9 @@ def api_client():
 def user():
     """Create and return a test user."""
     return User.objects.create_user(
-        username='testuser',
-        email='test@example.com',
-        password='testpass123'
+        username="testuser",
+        email="test@example.com",
+        password="testpass123",
     )
 
 
@@ -30,9 +27,9 @@ def user():
 def admin_user():
     """Create and return a test admin user."""
     return User.objects.create_superuser(
-        username='admin',
-        email='admin@example.com',
-        password='adminpass123'
+        username="admin",
+        email="admin@example.com",
+        password="adminpass123",
     )
 
 
