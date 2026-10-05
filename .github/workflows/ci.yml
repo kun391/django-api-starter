@@ -49,7 +49,7 @@ jobs:
             requirements/local.txt
 
       - name: Set up uv for lock bootstrap
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           version: latest-known
 
