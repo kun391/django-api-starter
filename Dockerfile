@@ -33,6 +33,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM uv-base AS dev-deps
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --group dev --no-install-project
+
+FROM uv-base AS dev-async-deps
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --extra async --group dev --no-install-project
 
 FROM python-base AS runtime-base
@@ -52,7 +57,7 @@ FROM runtime-base AS runtime-async
 COPY --from=async-deps --chown=django:django /app/.venv /app/.venv
 CMD ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
 
-FROM uv-base AS development
+FROM uv-base AS development-base
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         netcat-openbsd \
@@ -60,10 +65,16 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system django \
     && useradd --system --gid django --home-dir /app django
-COPY --from=dev-deps --chown=django:django /app/.venv /app/.venv
 COPY . /app
 RUN mkdir -p /app/staticfiles /app/media \
     && chown -R django:django /app
 USER django
 EXPOSE 8000
+
+FROM development-base AS development
+COPY --from=dev-deps --chown=django:django /app/.venv /app/.venv
 CMD ["./bin/run_local.sh"]
+
+FROM development-base AS development-async
+COPY --from=dev-async-deps --chown=django:django /app/.venv /app/.venv
+CMD ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
