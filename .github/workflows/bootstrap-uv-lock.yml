@@ -1,0 +1,35 @@
+name: Bootstrap uv lock
+
+on:
+  push:
+    branches:
+      - chore/uv-production-runtime
+    paths:
+      - pyproject.toml
+      - .github/workflows/bootstrap-uv-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: chore/uv-production-runtime
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: latest-known
+      - name: Generate lockfile
+        run: uv lock
+      - name: Commit lockfile
+        run: |
+          if git diff --quiet -- uv.lock && git ls-files --error-unmatch uv.lock >/dev/null 2>&1; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git commit -m "chore: generate uv lockfile"
+          git push origin HEAD:chore/uv-production-runtime
