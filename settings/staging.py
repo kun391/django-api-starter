@@ -1,36 +1,35 @@
-"""
-Staging settings for Django API Template.
-"""
+"""Staging settings."""
 
-from .base import *  # noqa
+import sentry_sdk
+from decouple import config
+from sentry_sdk.integrations.django import DjangoIntegration
 
-# SECURITY WARNING: don't run with debug turned on in production!
+from .base import *  # noqa: F403
+
 DEBUG = False
 
-# Security settings (less strict than production)
-SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_SECONDS = 31536000
-SECURE_SSL_REDIRECT = False  # Disable for staging
-SESSION_COOKIE_SECURE = False  # Disable for staging
-CSRF_COOKIE_SECURE = False  # Disable for staging
-X_FRAME_OPTIONS = 'SAMEORIGIN'
+SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+X_FRAME_OPTIONS = "SAMEORIGIN"
 
-# Static files
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Celery settings for staging
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_EAGER_PROPAGATES = False
 
-# Sentry configuration for staging
-import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
-
-sentry_sdk.init(
-    dsn=config('SENTRY_DSN', default=''),
-    integrations=[DjangoIntegration()],
-    traces_sample_rate=0.5,  # Lower sample rate for staging
-    send_default_pii=False,  # Don't send PII in staging
-)
+SENTRY_DSN = config("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=config(
+            "SENTRY_TRACES_SAMPLE_RATE",
+            default=0.0,
+            cast=float,
+        ),
+        send_default_pii=False,
+    )
