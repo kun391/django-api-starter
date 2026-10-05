@@ -8,7 +8,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any
+from typing import Any, cast
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -92,13 +92,13 @@ def record_outbox_event(
     if _payload_size(payload, event_metadata) > max_bytes:
         raise ValueError(f"Outbox event exceeds the {max_bytes}-byte payload limit.")
 
-    return OutboxEvent.objects.create(
+    return cast(OutboxEvent, OutboxEvent.objects.create(
         topic=topic,
         version=version,
         payload=payload,
         metadata=event_metadata,
         available_at=available_at or timezone.now(),
-    )
+    ))
 
 
 def _envelope(event: OutboxEvent) -> dict[str, Any]:

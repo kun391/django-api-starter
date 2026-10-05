@@ -22,7 +22,7 @@ def clean_handlers():
 @pytest.mark.django_db(transaction=True)
 class TestBackgroundAndOutbox:
     def test_enqueue_after_commit_runs_only_after_commit(self):
-        calls = []
+        calls: list[str] = []
 
         with transaction.atomic():
             enqueue_after_commit(calls.append, "committed")
