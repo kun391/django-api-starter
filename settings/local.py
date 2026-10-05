@@ -1,6 +1,6 @@
 """Local development settings."""
 
-from decouple import config
+from decouple import config  # type: ignore[import-untyped]
 
 from .base import *  # noqa: F403
 
