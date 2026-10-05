@@ -43,41 +43,35 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.14"
-          cache: pip
-          cache-dependency-path: |
-            requirements/base.txt
-            requirements/local.txt
 
-      - name: Set up uv for lock bootstrap
+      - name: Set up uv
         uses: astral-sh/setup-uv@v10.2.0
         with:
           version: latest-known
+          enable-cache: true
 
-      - name: Generate uv lockfile
-        run: uv lock
+      - name: Verify lockfile
+        run: uv lock --check
 
-      - name: Upload uv lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: uv-lock
-          path: uv.lock
-          if-no-files-found: error
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements/local.txt
+      - name: Sync dependencies
+        run: uv sync --locked --group dev
 
       - name: Django checks
         run: |
-          python manage.py check
-          python manage.py makemigrations --check --dry-run
+          uv run python manage.py check
+          uv run python manage.py makemigrations --check --dry-run
 
       - name: Lint
-        run: ruff check .
+        run: uv run ruff check .
+
+      - name: Type check
+        run: uv run mypy .
 
       - name: Architecture
-        run: python scripts/check_architecture.py
+        run: uv run python scripts/check_architecture.py
 
       - name: Tests
-        run: pytest
+        run: uv run pytest
+
+      - name: Production image
+        run: docker build --target runtime -t django-api-starter:test .
