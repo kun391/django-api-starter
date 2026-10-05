@@ -194,6 +194,13 @@ CSRF_TRUSTED_ORIGINS = config(
 
 IDEMPOTENCY_TTL_SECONDS = config("IDEMPOTENCY_TTL_SECONDS", default=86400, cast=int)
 
+OUTBOX_BATCH_SIZE = config("OUTBOX_BATCH_SIZE", default=100, cast=int)
+OUTBOX_LEASE_SECONDS = config("OUTBOX_LEASE_SECONDS", default=60, cast=int)
+OUTBOX_MAX_ATTEMPTS = config("OUTBOX_MAX_ATTEMPTS", default=10, cast=int)
+OUTBOX_RETRY_BASE_SECONDS = config("OUTBOX_RETRY_BASE_SECONDS", default=5, cast=int)
+OUTBOX_RETRY_MAX_SECONDS = config("OUTBOX_RETRY_MAX_SECONDS", default=3600, cast=int)
+OUTBOX_MAX_EVENT_BYTES = config("OUTBOX_MAX_EVENT_BYTES", default=65536, cast=int)
+
 CELERY_BROKER_URL = config(
     "RABBITMQ_URL",
     default="amqp://admin:admin@rabbitmq:5672/",
@@ -203,6 +210,12 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "dispatch-transactional-outbox": {
+        "task": "core.dispatch_outbox",
+        "schedule": 5.0,
+    },
+}
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Django API Template",
