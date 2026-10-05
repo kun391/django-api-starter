@@ -9,9 +9,12 @@ public_api:
   - POST /api/v1/auth/token/
   - GET /api/v1/users/me/
   - PATCH /api/v1/users/update_me/
-dependencies:
+depends_on: []
+uses:
   - django.auth
   - rest_framework.authtoken
+emits: []
+consumes: []
 rules:
   - regular users may read and update only their own profile
   - user administration requires staff privileges
