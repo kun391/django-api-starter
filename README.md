@@ -1,177 +1,237 @@
-# Django API Template
+# Django API Starter
 
-A production-ready Django API project template with Docker Compose, comprehensive development tools, and best practices.
+A Django-first API starter focused on production safety, modularity, reproducible
+dependencies, and efficient AI-assisted development.
 
-## Features
+## Baseline
 
-- **Django 6.1+** with REST Framework
-- **Docker Compose** for development environment
-- **PostgreSQL** database
-- **RabbitMQ** for message queuing
-- **Celery** for background tasks
-- **Comprehensive Makefile** for development commands
-- **Code quality tools**: Ruff, MyPy
-- **Environment-specific settings**
-- **Production-ready configuration**
+- Python 3.12-3.14; CI and Docker use Python 3.14
+- Django 6.1
+- Django REST Framework
+- PostgreSQL 17
+- uv + committed `uv.lock`
+- Ruff, MyPy, pytest
+- Docker Compose
+- Optional Celery/Redis/RabbitMQ async profile
 
-## Requirements
+## Quick start
 
-- [Docker](https://docs.docker.com/get-started/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)\n- [uv](https://docs.astral.sh/uv/) for host-side Python workflows
-- [Make](https://www.gnu.org/software/make/)
+```bash
+cp env.example .env
+make dev
+make migrate
+```
 
-## Quick Start
+The API is available at `http://localhost:5001`.
 
-1. **Clone and setup**
-   ```bash
-   git clone <your-repo-url>
-   cd django-api-template
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+Create an admin user with:
 
-2. **Start development environment**
-   ```bash
-   make dev
-   ```
+```bash
+make createsuperuser
+```
 
-3. **Apply migrations**
-   ```bash
-   make migrate
-   ```
+## Dependency management
 
-4. **Create superuser**
-   ```bash
-   make exec-web
-   python manage.py createsuperuser
-   ```
-
-5. **Access the application**
-   - API: http://localhost:5001
-   - Admin: http://localhost:5001/admin
-   - RabbitMQ Management: http://localhost:15672 (admin/admin)
-
-## Dependency Management
-
-`pyproject.toml` is the dependency source of truth and `uv.lock` is committed
-for reproducible environments.
+`pyproject.toml` is the dependency source of truth. `uv.lock` contains the
+exact resolved dependency graph and is committed to Git.
 
 ```bash
 uv sync --locked --group dev
-uv sync --locked --extra async --group dev
+uv run pytest
+uv run ruff check .
+uv run mypy .
+```
+
+To upgrade dependencies intentionally:
+
+```bash
 uv lock --upgrade
+uv sync --group dev
 ```
 
-Runtime extras are opt-in:
-- `async`: Celery + Redis client
-- `storage`: django-storages + boto3
+Do not add `requirements*.txt` files.
 
-Do not add `requirements.txt` files.
-
-## Development Workflow
-
-### Running Tests
-- `make test` - Run all tests in parallel
-- `make test-linear` - Run tests sequentially
-- `make test-<pattern>` - Run specific tests matching a pattern
-
-### Database Operations
-- `make migrate` - Apply database migrations
-- `make makemigrations` - Create new migrations after model changes
-- `make dbshell` - Access the database shell for debugging
-
-### Code Quality
-- `make check` - Run linters and type checks
-- `make format` - Format code with ruff
-- `make lint` - Run linting checks
-
-### Docker Development
-- `make up` or `make dev` - Start the development environment
-- `make down` - Stop all services
-- `make logs` - View all container logs
-- `make logs-<service>` - View logs for a specific service
-- `make exec-<service>` - Execute bash in a container
-
-### Background Tasks
-- `make worker` - Run Celery workers
-- `make beat` - Run Celery beat scheduler
-- `make flower` - Run Celery monitoring
-
-## Project Structure
-
-```
-django-api-template/
-├── apps/                    # Django applications
-│   ├── core/               # Core functionality
-│   └── accounts/           # Identity, registration, and profiles
-├── config/                 # Gunicorn configuration
-├── settings/               # Django settings
-│   ├── base.py            # Base settings
-│   ├── local.py           # Local development
-│   ├── staging.py         # Staging environment
-│   └── production.py      # Production environment
-├── requirements/           # Python dependencies
-│   ├── base.txt           # Base requirements
-│   ├── local.txt          # Development requirements
-│   └── production.txt     # Production requirements
-├── bin/                   # Scripts and utilities
-├── docs/                  # Documentation
-├── tests/                 # Test configuration
-├── Dockerfile             # Docker configuration
-├── docker-compose.yml     # Docker Compose services
-├── Makefile               # Development commands
-├── pyproject.toml         # Dependency ranges and tool configuration\n├── uv.lock                # Exact cross-platform dependency lock
-├── manage.py              # Django management script
-└── README.md              # This file
-```
-
-## Environment Variables
-
-Create a `.env` file based on `.env.example`:
+### Optional runtime extras
 
 ```bash
-# Django
-DEBUG=True
-SECRET_KEY=your-secret-key-here
-DJANGO_SETTINGS_MODULE=settings.local
+# Background jobs
+uv sync --locked --extra async --group dev
 
-# Database
-DATABASE_URL=postgresql://user:password@db:5432/dbname
-POSTGRES_USER=user
-POSTGRES_PASSWORD=password
-POSTGRES_DB=dbname
-
-# Redis/Celery
-REDIS_URL=redis://redis:6379/0
-
-# RabbitMQ
-RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672/
-
-# External Services
-SENTRY_DSN=your-sentry-dsn
+# Object storage integrations
+uv sync --locked --extra storage --group dev
 ```
 
-## Deployment
+Available extras:
 
-### Staging
+- `async`: Celery and Redis client
+- `storage`: django-storages and boto3
+
+## Docker Compose
+
+Default development stack:
+
 ```bash
-make deploy-staging
+docker compose up -d
 ```
 
-### Production
+This starts only:
+
+```text
+web + PostgreSQL
+```
+
+Enable asynchronous infrastructure only when needed:
+
 ```bash
-make deploy-production
+docker compose --profile async up -d
 ```
 
-## Contributing
+The `async` profile adds:
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: `make test`
-5. Check code quality: `make check`
-6. Submit a pull request
+```text
+Redis + RabbitMQ + Celery worker + Celery beat
+```
 
-## License
+## Production images
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+The Dockerfile is multi-stage.
+
+```bash
+# Minimal API image
+docker build --target runtime -t django-api-starter .
+
+# Image with Celery dependencies
+docker build --target runtime-async -t django-api-starter-async .
+```
+
+The production targets do not include uv, compilers, Git, PostgreSQL CLI,
+netcat, debug toolbar, or test tooling.
+
+## Architecture
+
+The starter uses a Django-first modular monolith.
+
+```text
+Simple:
+API -> ORM
+
+Medium:
+API -> Service -> ORM
+
+Complex:
+API -> Service -> Domain -> Port -> Adapter
+```
+
+Do not add layers until complexity justifies them.
+
+Business modules live under `apps/` and use local documentation and metadata:
+
+```text
+apps/<module>/
+├── module.yaml
+├── README.md
+├── api/
+├── tests/
+└── ... only the layers that module needs
+```
+
+The current `accounts` module is the reference medium-complexity module.
+
+## Module tooling
+
+Create a module:
+
+```bash
+python scripts/create_module.py products --type crud
+python scripts/create_module.py orders --type domain
+python scripts/create_module.py payments --type integration
+python scripts/create_module.py notifications --type event-consumer
+```
+
+Validate module boundaries:
+
+```bash
+python scripts/check_architecture.py
+```
+
+Build minimal context for a coding agent:
+
+```bash
+python scripts/build_ai_context.py accounts
+python scripts/build_ai_context.py accounts --include api/views.py
+```
+
+`AGENTS.md` is the source of truth for coding-agent rules.
+
+## Testing and quality
+
+The same gates used in CI can be run locally:
+
+```bash
+uv lock --check
+uv run python manage.py check
+uv run python manage.py makemigrations --check --dry-run
+uv run ruff check .
+uv run mypy .
+uv run python scripts/check_architecture.py
+uv run pytest
+```
+
+CI also builds the production Docker target.
+
+## Useful Make targets
+
+```bash
+make up
+make down
+make logs
+make shell
+
+make test
+make coverage
+make check
+make format
+
+make migrate
+make makemigrations
+make dbshell
+
+make architecture
+make module name=products type=crud
+make ai-context name=accounts
+```
+
+## Project structure
+
+```text
+.
+├── AGENTS.md
+├── ARCHITECTURE.md
+├── apps/
+│   ├── accounts/
+│   └── core/
+├── config/
+├── settings/
+├── scripts/
+├── tests/
+├── bin/
+├── compose.yaml
+├── Dockerfile
+├── env.example
+├── Makefile
+├── pyproject.toml
+└── uv.lock
+```
+
+## Configuration
+
+Copy `env.example` to `.env` for local development. Production must provide
+its own secret key, allowed hosts, database credentials, and any enabled
+integration credentials.
+
+Sentry is opt-in through `SENTRY_DSN`. PII sending is disabled by default.
+
+## Design principle
+
+Start Django-native. Extract a boundary only when business complexity or
+dependency volatility makes that boundary valuable.
