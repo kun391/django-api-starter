@@ -5,9 +5,9 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core import outbox
 from apps.core.background import enqueue_after_commit
 from apps.core.models import OutboxEvent
-from apps.core import outbox
 
 
 @pytest.fixture(autouse=True)
