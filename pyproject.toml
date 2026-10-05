@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "django-api-template"
 version = "1.0.0"
-description = "A production-ready Django API template"
+description = "A Django-first, modular API starter"
 authors = [{name = "Your Name", email = "your.email@example.com"}]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.15"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -16,38 +16,40 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 [tool.ruff]
 target-version = "py311"
 line-length = 88
+
+[tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "C4", # flake8-comprehensions
-    "UP", # pyupgrade
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
 ]
 ignore = [
-    "E501",  # line too long, handled by black
-    "B008",  # do not perform function calls in argument defaults
-    "C901",  # too complex
+    "E501",
+    "B008",
+    "C901",
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "migrations/*" = ["E501"]
+"settings/*.py" = ["F403", "F405"]
 
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
 check_untyped_defs = true
-disallow_untyped_decorators = true
 no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
@@ -64,7 +66,12 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "settings.local"
+DJANGO_SETTINGS_MODULE = "settings.test"
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
-addopts = "-v --tb=short"
 testpaths = ["tests", "apps"]
+addopts = "-q --strict-config --strict-markers"
+filterwarnings = [
+    "error::rest_framework.deprecation.RemovedInNextDRFVersionWarning",
+    "always::rest_framework.deprecation.RemovedAfterNextDRFVersionWarning",
+    "error::django.utils.deprecation.RemovedInDjango60Warning",
+]

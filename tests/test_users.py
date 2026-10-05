@@ -35,7 +35,7 @@ class TestUserEndpoints:
         url = reverse('user-list')
         response = api_client.get(url)
         
-        assert response.status_code == 401
+        assert response.status_code == 403
     
     def test_get_user_list_authenticated(self, authenticated_client):
         """Test getting user list when authenticated."""

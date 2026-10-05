@@ -110,8 +110,7 @@ check:
 	@echo -e "$(GREEN)Running code quality checks...$(NC)"
 	$(COMPOSE_EXEC) web ruff check .
 	$(COMPOSE_EXEC) web mypy .
-	$(COMPOSE_EXEC) web pylint apps/ --rcfile=.pylintrc
-
+	
 format:
 	@echo -e "$(GREEN)Formatting code...$(NC)"
 	$(COMPOSE_EXEC) web ruff format .

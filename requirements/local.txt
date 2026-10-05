@@ -1,20 +1,17 @@
 -r base.txt
 
-# Development and testing
-pytest>=7.4.0,<7.5.0
-pytest-django>=4.7.0,<4.8.0
-pytest-cov>=4.1.0,<4.2.0
-factory-boy>=3.3.0,<3.4.0
-faker>=20.0.0,<20.1.0
+# Testing
+pytest>=9.1,<10.0
+pytest-django>=4.14,<5.0
+pytest-cov>=6.0,<8.0
+pytest-xdist>=3.6,<4.0
+factory-boy>=3.3,<4.0
+faker>=20.0,<40.0
 
 # Code quality
-ruff>=0.2.0,<0.3.0
-mypy>=1.7.0,<1.8.0
-pylint>=3.0.0,<3.1.0
+ruff>=0.16,<0.17
+mypy>=2.4,<3.0
 
 # Debugging
-django-debug-toolbar>=4.2.0,<4.3.0
-ipython>=8.17.0,<8.18.0
-
-# Development server
-django-extensions>=3.2.0,<3.3.0
+django-debug-toolbar>=4.2,<7.0
+ipython>=8.17,<10.0
