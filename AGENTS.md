@@ -47,6 +47,10 @@ pagination and query conventions; update schema annotations and contract tests.
 Idempotency is explicitly opt-in, never global middleware. Review authorization,
 stored response data and transaction boundaries before enabling it on an endpoint.
 
+Read `docs/security.md` before changing authentication, authorization, proxy identity,
+rate limits or security audit behavior. Never log credentials/tokens and never trust a
+client-supplied forwarded address, tenant or role without an explicit trusted boundary.
+
 ## Agent context
 
 For module-scoped work, start with:

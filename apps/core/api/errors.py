@@ -5,12 +5,18 @@ from http import HTTPStatus
 from django.http import JsonResponse
 from django.views import defaults
 from django.views.csrf import csrf_failure as django_csrf_failure
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import (
+    APIException,
+    AuthenticationFailed,
+    PermissionDenied,
+    ValidationError,
+)
 from rest_framework.renderers import JSONRenderer
 from rest_framework.settings import api_settings
 from rest_framework.views import exception_handler as drf_exception_handler
 
 from apps.core.observability import get_request_id
+from apps.core.security import audit_security_event
 
 
 def _flatten_errors(value, attr=None):
@@ -53,6 +59,18 @@ def exception_handler(exc, context):
         # logging and error reporting. handler500 supplies the safe public body.
         return None
 
+    request = context.get("request")
+    user = getattr(request, "user", None)
+    actor_id = getattr(user, "pk", None) if getattr(user, "is_authenticated", False) else None
+    if isinstance(exc, PermissionDenied):
+        audit_security_event(
+            "authorization.denied",
+            outcome="denied",
+            actor_id=actor_id,
+        )
+    elif isinstance(exc, AuthenticationFailed):
+        audit_security_event("authentication.failed", outcome="denied")
+
     if isinstance(exc, ValidationError):
         code = "validation_error"
         detail = "Request validation failed."
@@ -73,7 +91,6 @@ def exception_handler(exc, context):
     response.content_type = "application/problem+json"
     response["Cache-Control"] = "no-store"
     # Failure bodies are JSON even for views with a custom YAML/HTML renderer.
-    request = context.get("request")
     if request is not None:
         request.accepted_renderer = JSONRenderer()
         request.accepted_media_type = "application/json"
@@ -99,6 +116,13 @@ def bad_request(request, exception):
 
 def permission_denied(request, exception):
     if request.path.startswith("/api/"):
+        user = getattr(request, "user", None)
+        actor_id = getattr(user, "pk", None) if getattr(user, "is_authenticated", False) else None
+        audit_security_event(
+            "authorization.denied",
+            outcome="denied",
+            actor_id=actor_id,
+        )
         return _django_problem(403, "permission_denied", "Permission denied.")
     return defaults.permission_denied(request, exception)
 
@@ -117,5 +141,12 @@ def server_error(request):
 
 def csrf_failure(request, reason=""):
     if request.path.startswith("/api/"):
+        user = getattr(request, "user", None)
+        actor_id = getattr(user, "pk", None) if getattr(user, "is_authenticated", False) else None
+        audit_security_event(
+            "csrf.rejected",
+            outcome="denied",
+            actor_id=actor_id,
+        )
         return _django_problem(403, "permission_denied", "CSRF verification failed.")
     return django_csrf_failure(request, reason=reason)

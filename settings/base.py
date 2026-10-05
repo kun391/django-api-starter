@@ -151,12 +151,30 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "apps.core.api.errors.exception_handler",
     "DEFAULT_PAGINATION_CLASS": "apps.core.api.pagination.StandardPagination",
     "PAGE_SIZE": 20,
+    # Never trust X-Forwarded-For by default. Set this only when every request
+    # traverses exactly that many trusted proxies which sanitize the header.
+    "NUM_PROXIES": config("API_NUM_PROXIES", default=0, cast=int),
     "DEFAULT_FILTER_BACKENDS": [
         "apps.core.api.filtering.StrictDjangoFilterBackend",
         "rest_framework.filters.SearchFilter",
         "apps.core.api.filtering.StableOrderingFilter",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SECURITY_THROTTLE_RATES = {
+    "registration_ip": {
+        "limit": config("REGISTRATION_RATE_LIMIT", default=5, cast=int),
+        "window_seconds": config("REGISTRATION_RATE_WINDOW_SECONDS", default=60, cast=int),
+    },
+    "auth_login_ip": {
+        "limit": config("AUTH_LOGIN_IP_RATE_LIMIT", default=20, cast=int),
+        "window_seconds": config("AUTH_LOGIN_RATE_WINDOW_SECONDS", default=60, cast=int),
+    },
+    "auth_login_credential": {
+        "limit": config("AUTH_LOGIN_CREDENTIAL_RATE_LIMIT", default=10, cast=int),
+        "window_seconds": config("AUTH_LOGIN_RATE_WINDOW_SECONDS", default=60, cast=int),
+    },
 }
 
 CORS_ALLOWED_ORIGINS = config(
@@ -167,6 +185,12 @@ CORS_ALLOWED_ORIGINS = config(
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = (*default_headers, "x-request-id", "idempotency-key")
 CORS_EXPOSE_HEADERS = ["X-Request-ID", "Idempotency-Replayed", "Retry-After"]
+
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS",
+    default="",
+    cast=lambda value: [item.strip() for item in value.split(",") if item.strip()],
+)
 
 IDEMPOTENCY_TTL_SECONDS = config("IDEMPOTENCY_TTL_SECONDS", default=86400, cast=int)
 

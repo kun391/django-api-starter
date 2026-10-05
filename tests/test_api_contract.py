@@ -103,7 +103,7 @@ class TestAPIContract:
     def test_schema_validates_without_warnings(self, tmp_path):
         call_command("spectacular", file=str(tmp_path / "schema.yaml"), validate=True, fail_on_warn=True)
 
-    def test_schema_matches_resources_and_errors(self, api_client):
+    def test_schema_matches_resources_errors_and_security(self, api_client):
         schema = SchemaGenerator().get_schema(request=None, public=True)
         validate_schema(schema)
         paths = schema["paths"]
@@ -115,8 +115,14 @@ class TestAPIContract:
         assert "201" in users["post"]["responses"]
         success = users["post"]["responses"]["201"]["content"]["application/json"]["schema"]
         assert success["$ref"].endswith("/User")
-        token = paths["/api/v1/auth/token/"]["post"]["responses"]["200"]
+        token_operation = paths["/api/v1/auth/token/"]["post"]
+        token = token_operation["responses"]["200"]
         assert token["content"]["application/json"]["schema"]["$ref"].endswith("/Token")
+        assert token_operation.get("security", []) == []
+        revoke = paths["/api/v1/auth/token/revoke/"]["post"]
+        assert "204" in revoke["responses"]
+        assert revoke.get("security")
+        assert schema["components"]["securitySchemes"]
         problem = users["get"]["responses"]["400"]["content"]["application/problem+json"]["schema"]
         assert problem["$ref"].endswith("/APIProblem")
         actual = api_client.get("/api/v1/missing/").json()
