@@ -1,23 +1,52 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "django-api-template"
+name = "django-api-starter"
 version = "1.0.0"
 description = "A Django-first, modular API starter"
-authors = [{name = "Your Name", email = "your.email@example.com"}]
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
+dependencies = [
+    "Django>=6.1.1,<6.2",
+    "djangorestframework>=3.18,<3.19",
+    "django-cors-headers>=4.3,<5.0",
+    "django-filter>=24.0,<26.0",
+    "psycopg2-binary>=2.9,<3.0",
+    "dj-database-url>=2.0,<3.0",
+    "drf-spectacular>=0.27,<1.0",
+    "python-decouple>=3.8,<4.0",
+    "whitenoise>=6.6,<7.0",
+    "gunicorn>=21.2,<24.0",
+    "sentry-sdk>=2.0,<3.0",
 ]
+
+[project.optional-dependencies]
+async = [
+    "celery>=5.3,<6.0",
+    "redis>=5.0,<7.0",
+]
+storage = [
+    "django-storages>=1.14,<2.0",
+    "boto3>=1.34,<2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1,<10.0",
+    "pytest-django>=4.14,<5.0",
+    "pytest-cov>=6.0,<8.0",
+    "pytest-xdist>=3.6,<4.0",
+    "factory-boy>=3.3,<4.0",
+    "faker>=20.0,<40.0",
+    "ruff>=0.16,<0.17",
+    "mypy>=2.4,<3.0",
+    "PyYAML>=6.0,<7.0",
+    "django-debug-toolbar>=4.2,<7.0",
+    "django-extensions>=3.2,<4.0",
+    "ipython>=8.17,<10.0",
+]
+
+[tool.uv]
+package = false
+required-version = ">=0.12.17,<0.13"
 
 [tool.ruff]
 target-version = "py314"
