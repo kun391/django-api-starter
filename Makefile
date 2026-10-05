@@ -19,7 +19,7 @@ NC := \033[0m
 # Phony targets
 .PHONY: help up down build start stop restart logs ps exec \
         check format test migrate makemigrations dbshell clean prune \
-        worker beat shell collectstatic architecture module ai-context
+        worker beat async-up async-down shell collectstatic architecture module ai-context
 
 # Default target
 help:
@@ -55,6 +55,8 @@ help:
 	@echo -e "  ${YELLOW}Background Tasks:${NC}"
 	@echo "    worker     - Run Celery worker"
 	@echo "    beat       - Run Celery beat scheduler"
+	@echo "    async-up   - Start optional async services"
+	@echo "    async-down - Stop optional async services"
 	@echo -e "  ${YELLOW}Static Files:${NC}"
 	@echo "    collectstatic - Collect static files"
 	@echo -e "  ${YELLOW}Cleanup:${NC}"
@@ -167,6 +169,12 @@ coverage:
 	$(COMPOSE_EXEC) web pytest --cov=apps --cov-report=term-missing --cov-report=html
 
 # Background tasks
+async-up:
+	$(COMPOSE) --profile async up -d
+
+async-down:
+	$(COMPOSE) --profile async down
+
 worker:
 	$(COMPOSE_EXEC) web celery -A apps.core.celery:app worker --loglevel=info
 
