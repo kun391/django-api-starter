@@ -3,7 +3,7 @@ from django.db import models
 
 
 class User(AbstractUser):
-    """Custom user model."""
+    """Application user."""
 
     email = models.EmailField(unique=True)
     bio = models.TextField(max_length=500, blank=True)

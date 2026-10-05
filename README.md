@@ -4,7 +4,7 @@ A production-ready Django API project template with Docker Compose, comprehensiv
 
 ## Features
 
-- **Django 5.0+** with REST Framework
+- **Django 5.2+** with REST Framework
 - **Docker Compose** for development environment
 - **PostgreSQL** database
 - **RabbitMQ** for message queuing
@@ -86,7 +86,7 @@ A production-ready Django API project template with Docker Compose, comprehensiv
 django-api-template/
 ├── apps/                    # Django applications
 │   ├── core/               # Core functionality
-│   └── users/              # User management
+│   └── accounts/           # Identity, registration, and profiles
 ├── config/                 # Gunicorn configuration
 ├── settings/               # Django settings
 │   ├── base.py            # Base settings
