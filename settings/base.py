@@ -86,6 +86,19 @@ DATABASES = {
     }
 }
 
+MAILERS = {
+    "default": {
+        "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+        "OPTIONS": {
+            "host": config("EMAIL_HOST", default="localhost"),
+            "port": config("EMAIL_PORT", default=25, cast=int),
+            "username": config("EMAIL_HOST_USER", default=""),
+            "password": config("EMAIL_HOST_PASSWORD", default=""),
+            "use_tls": config("EMAIL_USE_TLS", default=False, cast=bool),
+        },
+    },
+}
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",

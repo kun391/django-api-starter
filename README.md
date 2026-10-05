@@ -4,13 +4,13 @@ A production-ready Django API project template with Docker Compose, comprehensiv
 
 ## Features
 
-- **Django 5.2+** with REST Framework
+- **Django 6.1+** with REST Framework
 - **Docker Compose** for development environment
 - **PostgreSQL** database
 - **RabbitMQ** for message queuing
 - **Celery** for background tasks
 - **Comprehensive Makefile** for development commands
-- **Code quality tools**: Ruff, MyPy, Pylint
+- **Code quality tools**: Ruff, MyPy
 - **Environment-specific settings**
 - **Production-ready configuration**
 
@@ -64,7 +64,7 @@ A production-ready Django API project template with Docker Compose, comprehensiv
 - `make dbshell` - Access the database shell for debugging
 
 ### Code Quality
-- `make check` - Run linters (ruff, mypy, pylint)
+- `make check` - Run linters and type checks
 - `make format` - Format code with ruff
 - `make lint` - Run linting checks
 
