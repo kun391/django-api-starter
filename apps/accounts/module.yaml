@@ -1,0 +1,18 @@
+name: accounts
+type: medium
+owns:
+  - user identity
+  - user profile
+  - registration
+public_api:
+  - POST /api/v1/users/
+  - POST /api/v1/auth/token/
+  - GET /api/v1/users/me/
+  - PATCH /api/v1/users/update_me/
+dependencies:
+  - django.auth
+  - rest_framework.authtoken
+rules:
+  - regular users may read and update only their own profile
+  - user administration requires staff privileges
+  - registration must enforce configured Django password validators
