@@ -51,6 +51,13 @@ Read `docs/security.md` before changing authentication, authorization, proxy ide
 rate limits or security audit behavior. Never log credentials/tokens and never trust a
 client-supplied forwarded address, tenant or role without an explicit trusted boundary.
 
+## Background work
+
+Read `docs/background-jobs.md` before introducing asynchronous work or domain events.
+Use on-commit enqueue only for best-effort jobs. Use the transactional outbox when
+delivery must commit with the business mutation. Outbox handlers are at-least-once and
+must be idempotent; never claim exactly-once delivery.
+
 ## Agent context
 
 For module-scoped work, start with:
