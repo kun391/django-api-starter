@@ -19,7 +19,7 @@ NC := \033[0m
 # Phony targets
 .PHONY: help up down build start stop restart logs ps exec \
         check format test migrate makemigrations dbshell clean prune \
-        worker beat flower shell collectstatic architecture module ai-context
+        worker beat shell collectstatic architecture module ai-context
 
 # Default target
 help:
@@ -173,9 +173,6 @@ worker:
 
 beat:
 	$(COMPOSE_EXEC) web celery -A apps.core.celery:app beat --loglevel=info
-
-flower:
-	$(COMPOSE_EXEC) web celery -A apps.core.celery:app flower --loglevel=info
 
 # Static files
 collectstatic:
