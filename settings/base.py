@@ -30,7 +30,6 @@ THIRD_PARTY_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "django_filters",
-    "django_extensions",
     "drf_spectacular",
 ]
 
