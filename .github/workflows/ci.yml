@@ -48,6 +48,21 @@ jobs:
             requirements/base.txt
             requirements/local.txt
 
+      - name: Set up uv for lock bootstrap
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: latest-known
+
+      - name: Generate uv lockfile
+        run: uv lock
+
+      - name: Upload uv lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: uv-lock
+          path: uv.lock
+          if-no-files-found: error
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
