@@ -8,20 +8,19 @@ version = "1.0.0"
 description = "A Django-first, modular API starter"
 authors = [{name = "Your Name", email = "your.email@example.com"}]
 readme = "README.md"
-requires-python = ">=3.11,<3.15"
+requires-python = ">=3.12,<3.15"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py314"
 line-length = 88
 
 [tool.ruff.lint]
@@ -46,7 +45,7 @@ ignore = [
 "settings/*.py" = ["F403", "F405"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.14"
 warn_return_any = true
 warn_unused_configs = true
 check_untyped_defs = true
@@ -73,5 +72,5 @@ addopts = "-q --strict-config --strict-markers"
 filterwarnings = [
     "error::rest_framework.deprecation.RemovedInNextDRFVersionWarning",
     "always::rest_framework.deprecation.RemovedAfterNextDRFVersionWarning",
-    "error::django.utils.deprecation.RemovedInDjango60Warning",
+    "error::django.utils.deprecation.RemovedInDjango70Warning",
 ]

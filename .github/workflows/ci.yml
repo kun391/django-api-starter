@@ -37,12 +37,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14"
           cache: pip
           cache-dependency-path: |
             requirements/base.txt
@@ -60,6 +60,9 @@ jobs:
 
       - name: Lint
         run: ruff check .
+
+      - name: Architecture
+        run: python scripts/check_architecture.py
 
       - name: Tests
         run: pytest

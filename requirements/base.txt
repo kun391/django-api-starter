@@ -4,7 +4,7 @@
 # a dedicated dependency-management change after CI proves this baseline.
 
 # Django and API
-Django>=5.2,<6.0
+Django>=6.1.1,<6.2
 djangorestframework>=3.18,<3.19
 django-cors-headers>=4.3,<5.0
 django-filter>=24.0,<26.0
