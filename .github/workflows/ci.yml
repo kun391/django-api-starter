@@ -61,5 +61,8 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      - name: Architecture
+        run: python scripts/check_architecture.py
+
       - name: Tests
         run: pytest
