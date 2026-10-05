@@ -93,6 +93,13 @@ module = [
 ]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = [
+    "decouple",
+    "yaml",
+]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "settings.test"
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
