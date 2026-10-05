@@ -79,7 +79,9 @@ jobs:
         run: uv run pytest
 
       - name: Compose config
-        run: docker compose -f compose.yaml config
+        run: |
+          cp env.example .env
+          docker compose -f compose.yaml config
 
       - name: Production image
         run: docker build --target runtime -t django-api-starter:test .
