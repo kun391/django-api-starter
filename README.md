@@ -17,7 +17,7 @@ A production-ready Django API project template with Docker Compose, comprehensiv
 ## Requirements
 
 - [Docker](https://docs.docker.com/get-started/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
+- [Docker Compose](https://docs.docker.com/compose/install/)\n- [uv](https://docs.astral.sh/uv/) for host-side Python workflows
 - [Make](https://www.gnu.org/software/make/)
 
 ## Quick Start
@@ -50,6 +50,23 @@ A production-ready Django API project template with Docker Compose, comprehensiv
    - API: http://localhost:5001
    - Admin: http://localhost:5001/admin
    - RabbitMQ Management: http://localhost:15672 (admin/admin)
+
+## Dependency Management
+
+`pyproject.toml` is the dependency source of truth and `uv.lock` is committed
+for reproducible environments.
+
+```bash
+uv sync --locked --group dev
+uv sync --locked --extra async --group dev
+uv lock --upgrade
+```
+
+Runtime extras are opt-in:
+- `async`: Celery + Redis client
+- `storage`: django-storages + boto3
+
+Do not add `requirements.txt` files.
 
 ## Development Workflow
 
@@ -103,7 +120,7 @@ django-api-template/
 ├── Dockerfile             # Docker configuration
 ├── docker-compose.yml     # Docker Compose services
 ├── Makefile               # Development commands
-├── pyproject.toml         # Python project configuration
+├── pyproject.toml         # Dependency ranges and tool configuration\n├── uv.lock                # Exact cross-platform dependency lock
 ├── manage.py              # Django management script
 └── README.md              # This file
 ```
