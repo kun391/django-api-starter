@@ -5,7 +5,7 @@ SHELL := /bin/bash
 PROJECT_NAME := django-api-template
 
 # Docker Compose configuration
-COMPOSE_FILES := docker-compose.yml
+COMPOSE_FILES := compose.yaml
 COMPOSE := docker compose $(foreach f,$(subst :, ,$(COMPOSE_FILES)),-f $(f))
 COMPOSE_RUN := $(COMPOSE) run --rm
 COMPOSE_EXEC := $(COMPOSE) exec
@@ -55,7 +55,6 @@ help:
 	@echo -e "  ${YELLOW}Background Tasks:${NC}"
 	@echo "    worker     - Run Celery worker"
 	@echo "    beat       - Run Celery beat scheduler"
-	@echo "    flower     - Run Celery monitoring"
 	@echo -e "  ${YELLOW}Static Files:${NC}"
 	@echo "    collectstatic - Collect static files"
 	@echo -e "  ${YELLOW}Cleanup:${NC}"
@@ -206,7 +205,6 @@ update-deps:
 health:
 	@echo -e "$(GREEN)Checking service health...$(NC)"
 	@curl -f http://localhost:5001/health/ || echo -e "$(RED)Web service is down$(NC)"
-	@curl -f http://localhost:15672/ || echo -e "$(RED)RabbitMQ is down$(NC)"
 
 # Backup and restore
 backup:
