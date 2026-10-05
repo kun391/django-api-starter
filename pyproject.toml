@@ -40,6 +40,7 @@ dev = [
     "mypy>=2.4,<3.0",
     "PyYAML>=6.0,<7.0",
     "types-PyYAML>=6.0,<7.0",
+    "pip-audit>=2.7,<3.0",
     "django-debug-toolbar>=4.2,<7.0",
     "django-extensions>=3.2,<4.0",
     "ipython>=8.17,<10.0",

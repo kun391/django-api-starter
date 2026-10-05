@@ -8,28 +8,32 @@ from django.urls import reverse
 class TestHealthEndpoints:
     """Test health check endpoints."""
 
-    def test_health_check(self, api_client):
-        """Test basic health check endpoint."""
-        url = reverse("health_check")
-        response = api_client.get(url)
+    def test_liveness(self, api_client):
+        response = api_client.get(reverse("health_live"))
 
         assert response.status_code == 200
-        assert response.json()["status"] == "healthy"
-        assert "Django API Starter is running" in response.json()["message"]
+        assert response.json() == {"status": "ok"}
 
-    def test_database_health(self, api_client):
-        """Test database health check endpoint."""
-        url = reverse("database_health")
-        response = api_client.get(url)
+    def test_readiness(self, api_client):
+        response = api_client.get(reverse("health_ready"))
 
         assert response.status_code == 200
-        assert response.json()["status"] == "healthy"
-        assert response.json()["database"] == "connected"
+        assert response.json() == {"status": "ready", "database": "ok"}
+
+    def test_legacy_health_endpoint(self, api_client):
+        response = api_client.get(reverse("health_check"))
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+
+    def test_legacy_database_health_endpoint(self, api_client):
+        response = api_client.get(reverse("database_health"))
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ready", "database": "ok"}
 
     def test_celery_health(self, api_client):
-        """Test Celery health check endpoint."""
-        url = reverse("celery_health")
-        response = api_client.get(url)
+        response = api_client.get(reverse("celery_health"))
 
         assert response.status_code in [200, 503]
         assert "status" in response.json()
