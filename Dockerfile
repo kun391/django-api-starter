@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM python:3.14-slim-bookworm AS base
+FROM python:3.14-slim-bookworm AS python-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -15,28 +15,27 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
         libpq5 \
-        netcat-openbsd \
-        postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
+FROM python-base AS uv-base
 COPY --from=ghcr.io/astral-sh/uv:0.12.17 /uv /uvx /bin/
 
-FROM base AS prod-deps
+FROM uv-base AS prod-deps
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --no-install-project
 
-FROM base AS async-deps
+FROM uv-base AS async-deps
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --extra async --no-install-project
 
-FROM base AS dev-deps
+FROM uv-base AS dev-deps
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --extra async --group dev --no-install-project
 
-FROM base AS runtime-base
+FROM python-base AS runtime-base
 RUN groupadd --system django \
     && useradd --system --gid django --home-dir /app django
 COPY . /app
@@ -53,6 +52,18 @@ FROM runtime-base AS runtime-async
 COPY --from=async-deps --chown=django:django /app/.venv /app/.venv
 CMD ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
 
-FROM runtime-base AS development
+FROM uv-base AS development
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        netcat-openbsd \
+        postgresql-client \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system django \
+    && useradd --system --gid django --home-dir /app django
 COPY --from=dev-deps --chown=django:django /app/.venv /app/.venv
+COPY . /app
+RUN mkdir -p /app/staticfiles /app/media \
+    && chown -R django:django /app
+USER django
+EXPOSE 8000
 CMD ["./bin/run_local.sh"]
