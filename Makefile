@@ -6,7 +6,7 @@ PROJECT_NAME := django-api-template
 
 # Docker Compose configuration
 COMPOSE_FILES := docker-compose.yml
-COMPOSE := docker-compose $(foreach f,$(subst :, ,$(COMPOSE_FILES)),-f $(f))
+COMPOSE := docker compose $(foreach f,$(subst :, ,$(COMPOSE_FILES)),-f $(f))
 COMPOSE_RUN := $(COMPOSE) run --rm
 COMPOSE_EXEC := $(COMPOSE) exec
 
@@ -169,13 +169,13 @@ coverage:
 
 # Background tasks
 worker:
-	$(COMPOSE_EXEC) web celery -A core worker --loglevel=info
+	$(COMPOSE_EXEC) web celery -A apps.core.celery:app worker --loglevel=info
 
 beat:
-	$(COMPOSE_EXEC) web celery -A core beat --loglevel=info
+	$(COMPOSE_EXEC) web celery -A apps.core.celery:app beat --loglevel=info
 
 flower:
-	$(COMPOSE_EXEC) web celery -A core flower --loglevel=info
+	$(COMPOSE_EXEC) web celery -A apps.core.celery:app flower --loglevel=info
 
 # Static files
 collectstatic:
@@ -200,10 +200,10 @@ dumpdata:
 
 # Development utilities
 install-deps:
-	$(COMPOSE_EXEC) web pip install -r requirements/local.txt
+	$(COMPOSE_EXEC) web uv sync --locked --extra async --group dev
 
 update-deps:
-	$(COMPOSE_EXEC) web pip install --upgrade -r requirements/local.txt
+	$(COMPOSE_EXEC) web uv lock --upgrade && $(COMPOSE_EXEC) web uv sync --extra async --group dev
 
 # Health checks
 health:
