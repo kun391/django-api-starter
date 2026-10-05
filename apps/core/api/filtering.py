@@ -54,13 +54,13 @@ class StableOrderingFilter(OrderingFilter):
             if any(field.removeprefix("-") not in allowed for field in ordering):
                 raise ValidationError({self.ordering_param: "Unsupported ordering field."})
         else:
-            ordering = (
+            default = (
                 self.get_default_ordering(view)
                 or queryset.query.order_by
                 or queryset.model._meta.ordering
                 or ()
             )
-        ordering = [ordering] if isinstance(ordering, str) else list(ordering)
+            ordering = [default] if isinstance(default, str) else list(default)
         pk = queryset.model._meta.pk.name
         if not any(field.removeprefix("-") in {"pk", pk} for field in ordering):
             ordering.append(pk)

@@ -11,7 +11,7 @@ from apps.core.urls import handler400, handler403, handler404, handler500  # noq
 
 class FailureView(APIView):
     permission_classes = [AllowAny]
-    authentication_classes = []
+    authentication_classes = ()
 
     def get(self, request, kind):
         if kind == "throttle":

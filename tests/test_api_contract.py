@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 from django.core.management import call_command
 from django.urls import reverse
@@ -126,7 +128,7 @@ class TestAPIContract:
 
 
 def test_idempotency_schema_is_opt_in():
-    document = {"paths": {"/api/v1/example/": {"post": {
+    document: dict[str, Any] = {"paths": {"/api/v1/example/": {"post": {
         "parameters": [{"name": "Idempotency-Key", "in": "header"}],
         "responses": {"201": {"description": "Created"}},
     }}}}

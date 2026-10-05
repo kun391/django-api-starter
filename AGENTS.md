@@ -40,6 +40,13 @@ Behavior changes require tests.
 
 Prefer composition and reuse over generation from scratch.
 
+## API boundaries
+
+Read `docs/api-contract.md` before changing API behavior. Reuse the shared error,
+pagination and query conventions; update schema annotations and contract tests.
+Idempotency is explicitly opt-in, never global middleware. Review authorization,
+stored response data and transaction boundaries before enabling it on an endpoint.
+
 ## Agent context
 
 For module-scoped work, start with:
