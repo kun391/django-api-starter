@@ -5,8 +5,8 @@ SHELL := /bin/bash
 PROJECT_NAME := django-api-template
 
 # Docker Compose configuration
-COMPOSE_FILES := docker-compose.yml
-COMPOSE := docker-compose $(foreach f,$(subst :, ,$(COMPOSE_FILES)),-f $(f))
+COMPOSE_FILES := compose.yaml
+COMPOSE := docker compose $(foreach f,$(subst :, ,$(COMPOSE_FILES)),-f $(f))
 COMPOSE_RUN := $(COMPOSE) run --rm
 COMPOSE_EXEC := $(COMPOSE) exec
 
@@ -19,7 +19,7 @@ NC := \033[0m
 # Phony targets
 .PHONY: help up down build start stop restart logs ps exec \
         check format test migrate makemigrations dbshell clean prune \
-        worker beat flower shell collectstatic architecture module ai-context
+        worker beat shell collectstatic architecture module ai-context
 
 # Default target
 help:
@@ -55,7 +55,6 @@ help:
 	@echo -e "  ${YELLOW}Background Tasks:${NC}"
 	@echo "    worker     - Run Celery worker"
 	@echo "    beat       - Run Celery beat scheduler"
-	@echo "    flower     - Run Celery monitoring"
 	@echo -e "  ${YELLOW}Static Files:${NC}"
 	@echo "    collectstatic - Collect static files"
 	@echo -e "  ${YELLOW}Cleanup:${NC}"
@@ -169,13 +168,10 @@ coverage:
 
 # Background tasks
 worker:
-	$(COMPOSE_EXEC) web celery -A core worker --loglevel=info
+	$(COMPOSE_EXEC) web celery -A apps.core.celery:app worker --loglevel=info
 
 beat:
-	$(COMPOSE_EXEC) web celery -A core beat --loglevel=info
-
-flower:
-	$(COMPOSE_EXEC) web celery -A core flower --loglevel=info
+	$(COMPOSE_EXEC) web celery -A apps.core.celery:app beat --loglevel=info
 
 # Static files
 collectstatic:
@@ -200,16 +196,15 @@ dumpdata:
 
 # Development utilities
 install-deps:
-	$(COMPOSE_EXEC) web pip install -r requirements/local.txt
+	$(COMPOSE_EXEC) web uv sync --locked --extra async --group dev
 
 update-deps:
-	$(COMPOSE_EXEC) web pip install --upgrade -r requirements/local.txt
+	$(COMPOSE_EXEC) web uv lock --upgrade && $(COMPOSE_EXEC) web uv sync --extra async --group dev
 
 # Health checks
 health:
 	@echo -e "$(GREEN)Checking service health...$(NC)"
 	@curl -f http://localhost:5001/health/ || echo -e "$(RED)Web service is down$(NC)"
-	@curl -f http://localhost:15672/ || echo -e "$(RED)RabbitMQ is down$(NC)"
 
 # Backup and restore
 backup:
