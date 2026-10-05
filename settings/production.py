@@ -1,37 +1,52 @@
-"""
-Production settings for Django API Template.
-"""
+"""Production settings."""
 
-from .base import *  # noqa
+import sentry_sdk
+from decouple import config
+from django.core.exceptions import ImproperlyConfigured
+from sentry_sdk.integrations.django import DjangoIntegration
 
-# SECURITY WARNING: don't run with debug turned on in production!
+from .base import *  # noqa: F403
+
 DEBUG = False
 
-# Security settings
-SECURE_BROWSER_XSS_FILTER = True
+SECRET_KEY = config("SECRET_KEY", default="")
+if not SECRET_KEY:
+    raise ImproperlyConfigured("SECRET_KEY must be configured in production.")
+
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS",
+    default="",
+    cast=lambda value: [item.strip() for item in value.split(",") if item.strip()],
+)
+if not ALLOWED_HOSTS:
+    raise ImproperlyConfigured("ALLOWED_HOSTS must be configured in production.")
+
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_SECONDS = 31536000
-SECURE_REDIRECT_EXEMPT = []
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
-X_FRAME_OPTIONS = 'DENY'
+X_FRAME_OPTIONS = "DENY"
 
-# Static files
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Celery settings for production
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_EAGER_PROPAGATES = False
 
-# Sentry configuration
-import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
-
-sentry_sdk.init(
-    dsn=config('SENTRY_DSN', default=''),
-    integrations=[DjangoIntegration()],
-    traces_sample_rate=1.0,
-    send_default_pii=True,
-)
+SENTRY_DSN = config("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=config(
+            "SENTRY_TRACES_SAMPLE_RATE",
+            default=0.0,
+            cast=float,
+        ),
+        send_default_pii=config(
+            "SENTRY_SEND_DEFAULT_PII",
+            default=False,
+            cast=bool,
+        ),
+    )
