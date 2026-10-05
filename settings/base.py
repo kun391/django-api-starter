@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from corsheaders.defaults import default_headers
 from decouple import config  # type: ignore[import-untyped]
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -54,6 +55,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "apps.core.urls"
+CSRF_FAILURE_VIEW = "apps.core.api.errors.csrf_failure"
 
 TEMPLATES = [
     {
@@ -139,18 +141,20 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "EXCEPTION_HANDLER": "apps.core.api.errors.exception_handler",
+    "DEFAULT_PAGINATION_CLASS": "apps.core.api.pagination.StandardPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_FILTER_BACKENDS": [
-        "django_filters.rest_framework.DjangoFilterBackend",
+        "apps.core.api.filtering.StrictDjangoFilterBackend",
         "rest_framework.filters.SearchFilter",
-        "rest_framework.filters.OrderingFilter",
+        "apps.core.api.filtering.StableOrderingFilter",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -161,6 +165,10 @@ CORS_ALLOWED_ORIGINS = config(
     cast=lambda value: [item.strip() for item in value.split(",") if item.strip()],
 )
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = (*default_headers, "x-request-id", "idempotency-key")
+CORS_EXPOSE_HEADERS = ["X-Request-ID", "Idempotency-Replayed", "Retry-After"]
+
+IDEMPOTENCY_TTL_SECONDS = config("IDEMPOTENCY_TTL_SECONDS", default=86400, cast=int)
 
 CELERY_BROKER_URL = config(
     "RABBITMQ_URL",
@@ -174,9 +182,15 @@ CELERY_TIMEZONE = TIME_ZONE
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Django API Template",
-    "DESCRIPTION": "A production-ready Django API template",
+    "DESCRIPTION": "Versioned JSON API. See docs/api-contract.md for client conventions.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "PREPROCESSING_HOOKS": ["apps.core.api.schema.versioned_api_only"],
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "apps.core.api.schema.add_api_contract",
+    ],
 }
 
 LOG_LEVEL = config("LOG_LEVEL", default="INFO")

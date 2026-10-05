@@ -18,7 +18,8 @@ class TestAccountsAPI:
         )
 
         assert response.status_code == 400
-        assert "password" in response.json()
+        assert response.json()["code"] == "validation_error"
+        assert any(error["attr"] == "password" for error in response.json()["errors"])
 
     def test_registration_creates_user(self, api_client):
         response = api_client.post(
@@ -79,3 +80,4 @@ class TestAccountsAPI:
 
         assert response.status_code == 200
         assert response.json()["token"]
+        assert response["Cache-Control"] == "no-store"
