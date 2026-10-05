@@ -1,13 +1,12 @@
 from django.urls import include, path
-from rest_framework.authtoken.views import obtain_auth_token
 from rest_framework.routers import DefaultRouter
 
-from .views import UserViewSet
+from .views import TokenView, UserViewSet
 
 router = DefaultRouter()
 router.register("users", UserViewSet, basename="user")
 
 urlpatterns = [
-    path("auth/token/", obtain_auth_token, name="auth-token"),
+    path("auth/token/", TokenView.as_view(), name="auth-token"),
     path("", include(router.urls)),
 ]

@@ -8,6 +8,11 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+handler400 = "apps.core.api.errors.bad_request"
+handler403 = "apps.core.api.errors.permission_denied"
+handler404 = "apps.core.api.errors.not_found"
+handler500 = "apps.core.api.errors.server_error"
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", include("apps.accounts.api.urls")),

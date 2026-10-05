@@ -84,6 +84,9 @@ jobs:
       - name: Architecture
         run: uv run python scripts/check_architecture.py
 
+      - name: API schema validation
+        run: uv run python manage.py spectacular --file /tmp/schema.yaml --validate --fail-on-warn
+
       - name: Tests
         run: uv run pytest
 
