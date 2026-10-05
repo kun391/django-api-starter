@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from apps.accounts.models import User
@@ -32,7 +33,10 @@ class UserCreateSerializer(serializers.ModelSerializer):
         fields = ["username", "email", "password", "first_name", "last_name"]
 
     def create(self, validated_data):
-        return register_user(**validated_data)
+        try:
+            return register_user(**validated_data)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": exc.messages}) from exc
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
