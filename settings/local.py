@@ -1,37 +1,33 @@
-"""
-Local development settings for Django API Template.
-"""
+"""Local development settings."""
 
-from .base import *  # noqa
+from decouple import config
 
-# SECURITY WARNING: don't run with debug turned on in production!
+from .base import *  # noqa: F403
+
 DEBUG = True
+SECRET_KEY = config(
+    "SECRET_KEY",
+    default="django-insecure-local-development-only",
+)
 
-# Add debug toolbar
-if DEBUG:
-    INSTALLED_APPS += ['debug_toolbar']
-    MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
-    INTERNAL_IPS = ['127.0.0.1', 'localhost']
+INSTALLED_APPS += ["debug_toolbar"]  # noqa: F405
+MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]  # noqa: F405
+INTERNAL_IPS = ["127.0.0.1", "localhost"]
 
-# Allow all hosts in development
-ALLOWED_HOSTS = ['*']
-
-# CORS settings for development
+ALLOWED_HOSTS = ["*"]
 CORS_ALLOW_ALL_ORIGINS = True
 
-# Email backend for development
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-# Static files
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Celery settings for development
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_EAGER_PROPAGATES = True
 
-# Logging for development
-LOGGING['loggers']['django.db.backends'] = {
-    'handlers': ['console'],
-    'level': 'DEBUG',
-    'propagate': False,
+LOGGING["loggers"] = {  # noqa: F405
+    "django.db.backends": {
+        "handlers": ["console"],
+        "level": "DEBUG",
+        "propagate": False,
+    },
 }
