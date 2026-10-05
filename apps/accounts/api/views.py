@@ -1,12 +1,20 @@
+from django.db import transaction
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import permissions, serializers, status, viewsets
+from rest_framework.authentication import BaseAuthentication, TokenAuthentication
+from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.serializers import AuthTokenSerializer
-from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.decorators import action
-from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.accounts.models import User
+from apps.core.api.throttling import (
+    LoginCredentialThrottle,
+    LoginIPThrottle,
+    RegistrationIPThrottle,
+)
+from apps.core.security import audit_security_event
 
 from .filters import UserFilter
 from .serializers import UserCreateSerializer, UserSerializer, UserUpdateSerializer
@@ -16,12 +24,53 @@ class TokenSerializer(serializers.Serializer):
     token = serializers.CharField(read_only=True)
 
 
-class TokenView(ObtainAuthToken):
-    renderer_classes = [JSONRenderer]
+class TokenView(APIView):
+    permission_classes = [permissions.AllowAny]
+    authentication_classes: list[type[BaseAuthentication]] = []
+    throttle_classes = [LoginIPThrottle, LoginCredentialThrottle]
 
-    @extend_schema(request=AuthTokenSerializer, responses={200: TokenSerializer}, tags=["accounts"])
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
+    @extend_schema(
+        request=AuthTokenSerializer,
+        responses={200: TokenSerializer},
+        tags=["accounts"],
+        auth=[],
+    )
+    def post(self, request):
+        serializer = AuthTokenSerializer(data=request.data, context={"request": request})
+        try:
+            serializer.is_valid(raise_exception=True)
+        except serializers.ValidationError:
+            audit_security_event("auth.login.failed", outcome="denied")
+            raise
+
+        user = serializer.validated_data["user"]
+        token, _ = Token.objects.get_or_create(user=user)
+        audit_security_event(
+            "auth.login.succeeded",
+            outcome="succeeded",
+            actor_id=user.pk,
+        )
+        response = Response({"token": token.key})
+        response["Cache-Control"] = "no-store"
+        return response
+
+
+class TokenRevokeView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(request=None, responses={204: None}, tags=["accounts"])
+    def post(self, request):
+        token = request.auth
+        actor_id = request.user.pk
+        with transaction.atomic():
+            Token.objects.filter(pk=token.pk).delete()
+        audit_security_event(
+            "auth.token.revoked",
+            outcome="succeeded",
+            actor_id=actor_id,
+        )
+        response = Response(status=status.HTTP_204_NO_CONTENT)
         response["Cache-Control"] = "no-store"
         return response
 
@@ -51,6 +100,11 @@ class UserViewSet(viewsets.ModelViewSet):
             permission_classes = [permissions.IsAdminUser]
         return [permission() for permission in permission_classes]
 
+    def get_throttles(self):
+        if self.action == "create":
+            return [RegistrationIPThrottle()]
+        return super().get_throttles()
+
     def get_serializer_class(self):
         if self.action == "create":
             return UserCreateSerializer
@@ -62,8 +116,33 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-        data = UserSerializer(serializer.instance, context=self.get_serializer_context()).data
+        user = serializer.instance
+        audit_security_event(
+            "accounts.registration.succeeded",
+            outcome="succeeded",
+            actor_id=user.pk,
+        )
+        data = UserSerializer(user, context=self.get_serializer_context()).data
         return Response(data, status=status.HTTP_201_CREATED, headers=self.get_success_headers(data))
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        audit_security_event(
+            "accounts.user.updated",
+            outcome="succeeded",
+            actor_id=self.request.user.pk,
+            subject_id=instance.pk,
+        )
+
+    def perform_destroy(self, instance):
+        subject_id = instance.pk
+        instance.delete()
+        audit_security_event(
+            "accounts.user.deleted",
+            outcome="succeeded",
+            actor_id=self.request.user.pk,
+            subject_id=subject_id,
+        )
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
@@ -90,5 +169,11 @@ class UserViewSet(viewsets.ModelViewSet):
             partial=request.method == "PATCH",
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(UserSerializer(serializer.instance).data, status=status.HTTP_200_OK)
+        instance = serializer.save()
+        audit_security_event(
+            "accounts.profile.updated",
+            outcome="succeeded",
+            actor_id=request.user.pk,
+            subject_id=instance.pk,
+        )
+        return Response(UserSerializer(instance).data, status=status.HTTP_200_OK)

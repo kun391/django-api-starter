@@ -13,6 +13,13 @@ from django.http import HttpRequest, HttpResponse
 
 _request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+_SECURITY_LOG_FIELDS = (
+    "security_event",
+    "outcome",
+    "actor_id",
+    "subject_id",
+    "throttle_scope",
+)
 
 
 def get_request_id() -> str | None:
@@ -65,6 +72,11 @@ class JsonFormatter(logging.Formatter):
         status_code = getattr(record, "status_code", None)
         if status_code is not None:
             payload["status_code"] = status_code
+
+        for field in _SECURITY_LOG_FIELDS:
+            value = getattr(record, field, None)
+            if value is not None:
+                payload[field] = value
 
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
