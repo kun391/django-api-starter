@@ -1,4 +1,5 @@
 name: Bootstrap uv lock
+# Temporary: removed after uv.lock is committed.
 
 on:
   pull_request:
