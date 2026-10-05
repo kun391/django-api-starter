@@ -7,7 +7,7 @@ User = get_user_model()
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    """Admin configuration for User model."""
+    """Admin configuration for User."""
 
     list_display = [
         "email",
@@ -24,7 +24,6 @@ class UserAdmin(BaseUserAdmin):
     fieldsets = BaseUserAdmin.fieldsets + (
         ("Additional Info", {"fields": ("bio", "birth_date")}),
     )
-
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         ("Additional Info", {"fields": ("bio", "birth_date")}),
     )

@@ -27,6 +27,7 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     "rest_framework",
+    "rest_framework.authtoken",
     "corsheaders",
     "django_filters",
     "django_extensions",
@@ -35,7 +36,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "apps.core",
-    "apps.users",
+    "apps.accounts",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -72,7 +73,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "apps.core.wsgi.application"
 
-AUTH_USER_MODEL = "users.User"
+AUTH_USER_MODEL = "accounts.User"
 
 DATABASES = {
     "default": {
