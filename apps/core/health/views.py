@@ -7,17 +7,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def live(request):
-    """Liveness: the Django process can serve requests."""
+def _live_response():
     return JsonResponse({"status": "ok"})
 
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def ready(request):
-    """Readiness: critical dependencies required to serve traffic are available."""
+def _ready_response():
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
@@ -33,16 +27,30 @@ def ready(request):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
+def live(request):
+    """Liveness: the Django process can serve requests."""
+    return _live_response()
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def ready(request):
+    """Readiness: critical dependencies required to serve traffic are available."""
+    return _ready_response()
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
 def health_check(request):
     """Backward-compatible health endpoint. Prefer /health/live/."""
-    return live(request)
+    return _live_response()
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def database_health(request):
     """Backward-compatible database health endpoint. Prefer /health/ready/."""
-    return ready(request)
+    return _ready_response()
 
 
 @api_view(["GET"])
