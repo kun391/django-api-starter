@@ -39,6 +39,7 @@ dev = [
     "ruff>=0.16,<0.17",
     "mypy>=2.4,<3.0",
     "PyYAML>=6.0,<7.0",
+    "types-PyYAML>=6.0,<7.0",
     "django-debug-toolbar>=4.2,<7.0",
     "django-extensions>=3.2,<4.0",
     "ipython>=8.17,<10.0",
@@ -103,3 +104,7 @@ filterwarnings = [
     "always::rest_framework.deprecation.RemovedAfterNextDRFVersionWarning",
     "error::django.utils.deprecation.RemovedInDjango70Warning",
 ]
+
+[[tool.mypy.overrides]]
+module = ["decouple", "decouple.*"]
+disable_error_code = ["import-untyped"]
