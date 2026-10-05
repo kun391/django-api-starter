@@ -24,7 +24,7 @@ class PostgresFixedWindowThrottle(BaseThrottle):
         self._wait_seconds: int | None = None
 
     def get_identity(self, request) -> str:
-        return self.get_ident(request)
+        return str(self.get_ident(request))
 
     def get_rate(self) -> tuple[int, int]:
         rates = getattr(settings, "SECURITY_THROTTLE_RATES", {})

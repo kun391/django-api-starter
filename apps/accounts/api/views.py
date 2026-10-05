@@ -1,7 +1,7 @@
 from django.db import transaction
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import permissions, serializers, status, viewsets
-from rest_framework.authentication import TokenAuthentication
+from rest_framework.authentication import BaseAuthentication, TokenAuthentication
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.serializers import AuthTokenSerializer
 from rest_framework.decorators import action
@@ -26,7 +26,7 @@ class TokenSerializer(serializers.Serializer):
 
 class TokenView(APIView):
     permission_classes = [permissions.AllowAny]
-    authentication_classes = []
+    authentication_classes: list[type[BaseAuthentication]] = []
     throttle_classes = [LoginIPThrottle, LoginCredentialThrottle]
 
     @extend_schema(
