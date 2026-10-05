@@ -1,47 +1,58 @@
-FROM python:3.14-slim-bookworm
+# syntax=docker/dockerfile:1.7
 
-# Set environment variables
+FROM python:3.14-slim-bookworm AS base
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PATH="/app/.venv/bin:$PATH" \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
-# Set work directory
 WORKDIR /app
 
-# Install system dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        build-essential \
         curl \
-        git \
-        libpq-dev \
-        netcat-traditional \
+        libpq5 \
+        netcat-openbsd \
         postgresql-client \
-        && rm -rf /var/lib/apt/lists/* \
-        && apt-get clean
+    && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user
-RUN groupadd -r django && useradd -r -g django django
+COPY --from=ghcr.io/astral-sh/uv:0.12.17 /uv /uvx /bin/
 
-# Install Python dependencies
-COPY requirements/ requirements/
-RUN pip install --upgrade pip \
-    && pip install -r requirements/local.txt
+FROM base AS prod-deps
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-install-project
 
-# Copy project
-COPY . /app/
+FROM base AS async-deps
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --extra async --no-install-project
 
-# Create necessary directories
-RUN mkdir -p /app/static /app/media /app/logs \
+FROM base AS dev-deps
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --extra async --group dev --no-install-project
+
+FROM base AS runtime-base
+RUN groupadd --system django \
+    && useradd --system --gid django --home-dir /app django
+COPY . /app
+RUN mkdir -p /app/staticfiles /app/media \
     && chown -R django:django /app
-
-# Switch to non-root user
 USER django
-
-# Expose port
 EXPOSE 8000
 
-# Default command
+FROM runtime-base AS runtime
+COPY --from=prod-deps --chown=django:django /app/.venv /app/.venv
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "apps.core.wsgi:application"]
+
+FROM runtime-base AS runtime-async
+COPY --from=async-deps --chown=django:django /app/.venv /app/.venv
+CMD ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
+
+FROM runtime-base AS development
+COPY --from=dev-deps --chown=django:django /app/.venv /app/.venv
+CMD ["./bin/run_local.sh"]
