@@ -31,7 +31,7 @@ class TestBackgroundAndOutbox:
         assert calls == ["committed"]
 
     def test_enqueue_after_commit_is_discarded_on_rollback(self):
-        calls = []
+        calls: list[str] = []
 
         with pytest.raises(RuntimeError), transaction.atomic():
             enqueue_after_commit(calls.append, "rolled-back")
