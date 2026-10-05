@@ -8,7 +8,11 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: phase5-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -39,6 +43,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: chore/uv-production-runtime
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -54,12 +60,16 @@ jobs:
       - name: Refresh lockfile
         run: uv lock
 
-      - name: Upload refreshed lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: uv-lock-refresh
-          path: uv.lock
-          if-no-files-found: error
+      - name: Commit refreshed lockfile if needed
+        run: |
+          if git diff --quiet -- uv.lock; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git commit -m "chore: refresh uv lockfile"
+          git push origin HEAD:chore/uv-production-runtime
 
       - name: Verify lockfile
         run: uv lock --check
