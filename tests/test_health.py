@@ -15,7 +15,7 @@ class TestHealthEndpoints:
 
         assert response.status_code == 200
         assert response.json()["status"] == "healthy"
-        assert "Django API Template is running" in response.json()["message"]
+        assert "Django API Starter is running" in response.json()["message"]
 
     def test_database_health(self, api_client):
         """Test database health check endpoint."""

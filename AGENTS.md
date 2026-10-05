@@ -54,3 +54,13 @@ For new modules, prefer:
 `python scripts/create_module.py <name> --type <preset>`
 
 Then remove any generated layer that the module does not actually need.
+
+## Dependencies
+
+Use `pyproject.toml` and uv for dependency changes.
+
+- Do not add or regenerate `requirements*.txt` files.
+- Add broad compatible ranges to `pyproject.toml`.
+- Regenerate and commit `uv.lock` with uv.
+- CI and production installs must use the committed lockfile.
+- Prefer an optional extra when a dependency supports an optional runtime capability.

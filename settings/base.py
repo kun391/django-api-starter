@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from decouple import config
+from decouple import config  # type: ignore[import-untyped]
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -30,7 +30,6 @@ THIRD_PARTY_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "django_filters",
-    "django_extensions",
     "drf_spectacular",
 ]
 
@@ -122,6 +121,15 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

@@ -1,7 +1,7 @@
 """Staging settings."""
 
 import sentry_sdk
-from decouple import config
+from decouple import config  # type: ignore[import-untyped]
 from sentry_sdk.integrations.django import DjangoIntegration
 
 from .base import *  # noqa: F403
@@ -15,8 +15,6 @@ SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 X_FRAME_OPTIONS = "SAMEORIGIN"
-
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_EAGER_PROPAGATES = False
