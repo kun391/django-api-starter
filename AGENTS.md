@@ -39,3 +39,18 @@ logic.
 Behavior changes require tests.
 
 Prefer composition and reuse over generation from scratch.
+
+## Agent context
+
+For module-scoped work, start with:
+
+`python scripts/build_ai_context.py <module>`
+
+Include source files explicitly only when needed. Do not generate persistent
+copies of repository context.
+
+For new modules, prefer:
+
+`python scripts/create_module.py <name> --type <preset>`
+
+Then remove any generated layer that the module does not actually need.
