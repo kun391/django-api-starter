@@ -156,6 +156,10 @@ class OrganizationTicketViewSet(BaseTicketViewSet):
         )
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            from apps.tickets.models import Ticket
+
+            return Ticket.objects.none()
         access = self._access()
         return (
             selectors.organization_tickets(
