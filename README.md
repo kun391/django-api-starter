@@ -102,10 +102,14 @@ docker build --target runtime -t django-api-starter .
 
 # Image with Celery dependencies
 docker build --target runtime-async -t django-api-starter-async .
+
+# API / scheduled cleanup with optional S3 dependencies
+docker build --target runtime-storage -t django-api-starter-storage .
 ```
 
 The production targets do not include uv, compilers, Git, PostgreSQL CLI,
-netcat, debug toolbar, or test tooling.
+netcat, debug toolbar, or test tooling. The async and storage targets have separate
+extras; S3-backed Celery workers need both, as described in the storage guide.
 
 ## Architecture
 
@@ -171,6 +175,19 @@ The performance cache defaults to disabled. Redis is optional and uses the
 existing `async` dependency extra. Accounts/auth remain no-store; security
 throttles and idempotency do not depend on the cache.
 
+## Private files and storage
+
+[Phase 11 guide](docs/storage.md) covers `/api/v1/files/`, private filesystem/S3,
+owner-only downloads, immutable replacement and outbox cleanup. The initial
+policy accepts bounded UTF-8 text and JSON, not arbitrary binaries or scanned
+malware-free documents. Signed URLs are off by default. **Default media storage
+is now private and the DEBUG `/media/` route is removed.**
+
+Run migrations and schedule both `reconcile_private_files` and `dispatch_outbox`.
+The optional local worker shares the private volume; S3 cleanup must use the same
+bucket/configuration and storage dependencies as the API. No S3 service is added
+to the default development stack.
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:
@@ -185,8 +202,8 @@ uv run python scripts/check_architecture.py
 uv run pytest
 ```
 
-CI also builds both production Docker targets and runs optional real-Redis cache
-integration in a separate job; the minimal PostgreSQL job needs no Redis.
+CI builds all three production targets and runs real Redis and S3-compatible
+integration in separate jobs. The minimal PostgreSQL job needs neither service.
 
 ## Useful Make targets
 
@@ -218,7 +235,8 @@ make ai-context name=accounts
 ├── ARCHITECTURE.md
 ├── apps/
 │   ├── accounts/
-│   └── core/
+│   ├── core/
+│   └── files/
 ├── config/
 ├── settings/
 ├── scripts/

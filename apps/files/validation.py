@@ -5,6 +5,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from hashlib import sha256
+from math import isfinite
 from pathlib import PurePosixPath
 
 from django.conf import settings
@@ -43,15 +44,22 @@ def validate_text(data: bytes) -> str:
 
 
 def _reject_constant(value):
-    raise ValueError("Non-finite numbers are not JSON.")
+    raise ValueError("Non-finite numbers are not supported.")
+
+
+def _finite_float(value):
+    number = float(value)
+    if not isfinite(number):
+        raise ValueError("JSON numbers must fit a finite Python float.")
+    return number
 
 
 def validate_json(data: bytes) -> str:
     validate_text(data)
     try:
-        json.loads(data.decode("utf-8"), parse_constant=_reject_constant)
+        json.loads(data.decode("utf-8"), parse_constant=_reject_constant, parse_float=_finite_float)
     except (ValueError, RecursionError) as exc:
-        raise ValidationError("Expected a valid JSON document.", code="invalid_file_content") from exc
+        raise ValidationError("Expected a valid JSON document with finite numbers.", code="invalid_file_content") from exc
     return "application/json"
 
 

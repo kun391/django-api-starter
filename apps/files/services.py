@@ -2,6 +2,8 @@
 
 import logging
 from datetime import timedelta
+from hashlib import sha256
+from tempfile import SpooledTemporaryFile
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
@@ -140,11 +142,32 @@ def delete_file(file_id, *, actor):
 
 
 def open_file(file_id, *, actor):
+    """Stage a bounded verified snapshot before returning an HTTP response.
+
+    Some backends defer I/O until the first read. Catch those failures before
+    response headers are sent, rather than leaking provider details or sending
+    a partial successful download. FileResponse owns the returned spool.
+    """
     record = owned_file(file_id, actor=actor)
     backend = storages["private"]
+    stream = SpooledTemporaryFile(max_size=1024 * 1024, mode="w+b")
     try:
-        stream = backend.open(record.object_key, "rb")
+        if not 0 < record.size <= 16 * 1024 * 1024:
+            raise ValueError("Invalid stored file size.")
+        remaining = record.size
+        digest = sha256()
+        with backend.open(record.object_key, "rb") as source:
+            while chunk := source.read(min(65536, remaining + 1)):
+                remaining -= len(chunk)
+                if remaining < 0:
+                    raise ValueError("Stored file exceeds its manifest.")
+                digest.update(chunk)
+                stream.write(chunk)
+        if remaining or digest.hexdigest() != record.sha256:
+            raise ValueError("Stored file does not match its manifest.")
+        stream.seek(0)
     except Exception:
+        stream.close()
         logger.warning("private_file_storage_unavailable: read")
         raise FileStorageUnavailable() from None
     return record, stream
