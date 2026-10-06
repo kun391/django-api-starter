@@ -60,7 +60,7 @@ def rename_organization(*, actor, organization_id, name: str) -> Organization:
 def add_member(*, actor, organization_id, user, role: str) -> OrganizationMembership:
     with transaction.atomic():
         access = resolve_access(actor=actor, organization_id=organization_id)
-        require_roles(access, OrganizationMembership.Role.OWNER)
+        require_roles(access, "owner")
         if OrganizationMembership.objects.filter(
             organization_id=organization_id, user_id=user.pk
         ).exists():
@@ -96,7 +96,7 @@ def _locked_owner_ids(organization_id) -> list[int]:
 def change_member_role(*, actor, organization_id, user_id: int, role: str):
     with transaction.atomic():
         access = resolve_access(actor=actor, organization_id=organization_id)
-        require_roles(access, OrganizationMembership.Role.OWNER)
+        require_roles(access, "owner")
         owner_ids = _locked_owner_ids(organization_id)
         membership = (
             OrganizationMembership.objects.select_for_update()
@@ -131,7 +131,7 @@ def change_member_role(*, actor, organization_id, user_id: int, role: str):
 def remove_member(*, actor, organization_id, user_id: int) -> None:
     with transaction.atomic():
         access = resolve_access(actor=actor, organization_id=organization_id)
-        require_roles(access, OrganizationMembership.Role.OWNER)
+        require_roles(access, "owner")
         owner_ids = _locked_owner_ids(organization_id)
         membership = (
             OrganizationMembership.objects.select_for_update()
@@ -141,7 +141,7 @@ def remove_member(*, actor, organization_id, user_id: int) -> None:
         if membership is None:
             return
         if (
-            membership.role == OrganizationMembership.Role.OWNER
+            membership.role == "owner"
             and owner_ids == [membership.pk]
         ):
             raise MembershipConflict("An organization must retain at least one owner.")
