@@ -21,6 +21,8 @@ from .serializers import (
 
 
 @extend_schema_view(
+    list=extend_schema(parameters=[IF_NONE_MATCH_PARAMETER]),
+    retrieve=extend_schema(parameters=[IF_NONE_MATCH_PARAMETER]),
     create=extend_schema(
         request=TicketCreateSerializer,
         responses={201: TicketSerializer},
