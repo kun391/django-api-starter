@@ -16,7 +16,6 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-
     services:
       postgres:
         image: postgres:17-alpine
@@ -31,80 +30,65 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-
     env:
       DJANGO_SETTINGS_MODULE: settings.test
       POSTGRES_DB: django_api
       POSTGRES_USER: postgres
       POSTGRES_HOST: 127.0.0.1
       POSTGRES_PORT: "5432"
-
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.14"
-
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.2.0
         with:
           version: latest-known
           enable-cache: true
-
       - name: Verify lockfile
         run: uv lock --check
-
       - name: Sync dependencies
         run: uv sync --locked --group dev
-
       - name: Django checks
         run: |
           uv run python manage.py check
           uv run python manage.py makemigrations --check --dry-run
-
       - name: Production deploy checks
         env:
           DJANGO_SETTINGS_MODULE: settings.production
           SECRET_KEY: ci-only-production-check-secret
           ALLOWED_HOSTS: example.com
         run: uv run python manage.py check --deploy
-
       - name: Dependency audit
         run: uv run pip-audit --strict
-
       - name: Lint
         run: uv run ruff check .
-
       - name: Type check
         run: uv run mypy .
-
       - name: Architecture
         run: uv run python scripts/check_architecture.py
-
       - name: API schema validation
         run: uv run python manage.py spectacular --file /tmp/schema.yaml --validate --fail-on-warn
-
       - name: Tests
         run: uv run pytest
-
       - name: Compose config
         run: |
           cp env.example .env
           docker compose -f compose.yaml config
-
+          docker compose --profile async -f compose.yaml config
       - name: Production image
         run: docker build --target runtime -t django-api-starter:test .
-
       - name: Async production image
         run: docker build --target runtime-async -t django-api-starter-async:test .
+      - name: Storage production image
+        run: docker build --target runtime-storage -t django-api-starter-storage:test .
 
   cache-redis:
     name: Optional Redis integration
     runs-on: ubuntu-latest
-
     services:
       postgres:
         image: postgres:17-alpine
@@ -128,7 +112,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-
     env:
       DJANGO_SETTINGS_MODULE: settings.test
       POSTGRES_DB: django_api
@@ -136,7 +119,6 @@ jobs:
       POSTGRES_HOST: 127.0.0.1
       POSTGRES_PORT: "5432"
       TEST_REDIS_URL: redis://127.0.0.1:6379/15
-
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -153,3 +135,75 @@ jobs:
         run: uv sync --locked --extra async --group dev
       - name: Real Redis cache integration
         run: uv run --extra async pytest tests/test_caching.py tests/test_cache_redis.py
+
+  storage-s3:
+    name: Private storage integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: django_api
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d django_api"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DJANGO_SETTINGS_MODULE: settings.test
+      POSTGRES_DB: django_api
+      POSTGRES_USER: postgres
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      TEST_S3_ENDPOINT_URL: http://127.0.0.1:9000
+      AWS_ACCESS_KEY_ID: ci-private-storage
+      AWS_SECRET_ACCESS_KEY: ci-private-storage-secret
+      AWS_EC2_METADATA_DISABLED: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: latest-known
+          enable-cache: true
+      - name: Sync storage dependencies
+        run: uv sync --locked --extra storage --group dev
+      - name: Audit storage dependencies
+        run: uv run --extra storage pip-audit --strict
+      - name: Set up Go for disposable S3 fixture
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: false
+      - name: Build and start isolated S3-compatible server
+        run: |
+          # Pinned upstream source includes the last upstream security release.
+          # Test fixture only: no production object-storage recommendation.
+          GOBIN="$RUNNER_TEMP/minio-bin" go install github.com/minio/minio@RELEASE.2025-10-15T17-29-55Z
+          MINIO_ROOT_USER="$AWS_ACCESS_KEY_ID" MINIO_ROOT_PASSWORD="$AWS_SECRET_ACCESS_KEY" \
+            "$RUNNER_TEMP/minio-bin/minio" server "$RUNNER_TEMP/minio-data" \
+              --address 127.0.0.1:9000 --console-address 127.0.0.1:9001 \
+              > "$RUNNER_TEMP/minio.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/minio.pid"
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/live; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/minio.log"
+          exit 1
+      - name: Real filesystem and S3 integration
+        run: uv run --extra storage pytest tests/test_private_files.py tests/test_private_storage_config.py tests/test_private_files_s3.py
+      - name: Stop S3 fixture
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/minio.pid" ]; then kill "$(cat "$RUNNER_TEMP/minio.pid")" || true; fi

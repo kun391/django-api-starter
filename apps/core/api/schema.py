@@ -14,13 +14,11 @@ IDEMPOTENCY_KEY_PARAMETER = OpenApiParameter(
 
 
 def versioned_api_only(endpoints):
-    # Operational probes are not part of the versioned client API.
     return [endpoint for endpoint in endpoints if endpoint[0].startswith("/api/v1/")]
 
 
 def add_api_contract(result, generator, request, public):
     schemas = result.setdefault("components", {}).setdefault("schemas", {})
-    # Contract tests compare these shared wire fields with real error responses.
     schemas["APIProblemError"] = {
         "type": "object",
         "required": ["attr", "code", "detail"],
@@ -50,9 +48,7 @@ def add_api_contract(result, generator, request, public):
             parameters = operation.setdefault("parameters", [])
             if not any(p.get("name") == "X-Request-ID" for p in parameters):
                 parameters.append({
-                    "in": "header",
-                    "name": "X-Request-ID",
-                    "required": False,
+                    "in": "header", "name": "X-Request-ID", "required": False,
                     "description": "Optional correlation ID. Invalid values are replaced by the server.",
                     "schema": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,128}$", "maxLength": 128},
                 })
@@ -62,6 +58,8 @@ def add_api_contract(result, generator, request, public):
                 statuses.add(404)
             if method in {"post", "put", "patch"}:
                 statuses.add(415)
+            if path.startswith("/api/v1/files/"):
+                statuses.update({409, 413, 503})
             idempotent = any(p.get("name") == "Idempotency-Key" for p in parameters)
             conditional = method in {"get", "head"} and any(
                 p.get("name") == "If-None-Match" for p in parameters
@@ -76,7 +74,7 @@ def add_api_contract(result, generator, request, public):
                     "description": HTTPStatus(status_code).phrase,
                     "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/APIProblem"}}},
                 })
-            sensitive = path.startswith(("/api/v1/users/", "/api/v1/auth/"))
+            sensitive = path.startswith(("/api/v1/users/", "/api/v1/auth/", "/api/v1/files/"))
             for status_code, response in responses.items():
                 headers = response.setdefault("headers", {})
                 headers["X-Request-ID"] = {"schema": {"type": "string"}}

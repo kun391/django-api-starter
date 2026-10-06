@@ -1,0 +1,27 @@
+name: files
+type: medium
+owns:
+  - private file metadata and upload policies
+  - upload staging and deletion lifecycle
+public_api:
+  - POST /api/v1/files/
+  - GET /api/v1/files/{id}/
+  - GET /api/v1/files/{id}/download/
+  - POST /api/v1/files/{id}/replace/
+  - DELETE /api/v1/files/{id}/
+  - POST /api/v1/files/{id}/download-url/
+depends_on: []
+uses:
+  - django.storage
+  - django.auth
+  - core.outbox
+emits:
+  - files.deletion-requested
+consumes:
+  - files.deletion-requested
+rules:
+  - only the authenticated owner can access a ready file
+  - no client-selected storage keys or public media routes
+  - upload manifests commit before storage I/O
+  - replacement creates a new immutable ID and retires the old one
+  - deletion and its outbox event commit together
