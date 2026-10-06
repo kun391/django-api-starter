@@ -17,6 +17,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import connection, connections
 from django.db.utils import OperationalError
+from django.test import override_settings
 
 from apps.core.management.commands.release_migrate import MIGRATION_LOCK_ID
 
@@ -87,12 +88,12 @@ def test_readiness_failure_is_generic_and_uncached(api_client):
 
 
 @pytest.fixture
-def release_settings(settings, tmp_path):
-    settings.SETTINGS_MODULE = "settings.production"
-    settings.DEBUG = False
-    settings.STATIC_ROOT = tmp_path
+def release_settings(tmp_path):
     (tmp_path / "staticfiles.json").write_text("{}")
-    return tmp_path
+    # Apply one holder: a later nested override would mask SETTINGS_MODULE with
+    # UserSettingsHolder's class-level None, unlike a real production process.
+    with override_settings(SETTINGS_MODULE="settings.production", DEBUG=False, STATIC_ROOT=tmp_path):
+        yield tmp_path
 
 
 @pytest.mark.django_db
