@@ -3,6 +3,7 @@ from django.core.cache import caches
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
+from rest_framework.test import APIClient
 
 from apps.core.models import IdempotencyRecord, OutboxEvent
 from apps.core.outbox import process_outbox_batch
@@ -49,10 +50,11 @@ def test_create_replay_is_idempotent_and_outbox_is_atomic(authenticated_client):
 
 def test_owner_scope_staff_visibility_and_status_permission(
     authenticated_client,
-    admin_client,
     user,
     admin_user,
 ):
+    staff_client = APIClient()
+    staff_client.force_authenticate(admin_user)
     own = _create(authenticated_client).json()
     other = Ticket.objects.create(owner=admin_user, title="Staff ticket")
 
@@ -67,7 +69,7 @@ def test_owner_scope_staff_visibility_and_status_permission(
     )
     assert response.status_code == 403
 
-    response = admin_client.patch(
+    response = staff_client.patch(
         reverse("ticket-detail", args=[own["id"]]),
         {"status": "resolved"},
         format="json",
