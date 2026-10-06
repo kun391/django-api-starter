@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import cast
 
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
@@ -13,14 +14,11 @@ class OrganizationAccess:
 
     @property
     def role(self) -> str:
-        return self.membership.role
+        return cast(str, self.membership.role)
 
     @property
     def can_manage_tickets(self) -> bool:
-        return self.role in {
-            OrganizationMembership.Role.OWNER,
-            OrganizationMembership.Role.ADMIN,
-        }
+        return self.role in {"owner", "admin"}
 
 
 def resolve_access(*, actor, organization_id) -> OrganizationAccess:
