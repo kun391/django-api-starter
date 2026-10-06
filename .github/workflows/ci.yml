@@ -59,7 +59,7 @@ jobs:
       - name: Production deploy checks
         env:
           DJANGO_SETTINGS_MODULE: settings.production
-          SECRET_KEY: ci-only-production-check-secret
+          SECRET_KEY: ci-only-0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ-abcdefghijklmnopqrstuvwxyz
           ALLOWED_HOSTS: example.com
         run: uv run python manage.py check --deploy
       - name: Dependency audit
@@ -77,14 +77,24 @@ jobs:
       - name: Compose config
         run: |
           cp env.example .env
-          docker compose -f compose.yaml config
-          docker compose --profile async -f compose.yaml config
-      - name: Production image
-        run: docker build --target runtime -t django-api-starter:test .
-      - name: Async production image
-        run: docker build --target runtime-async -t django-api-starter-async:test .
-      - name: Storage production image
-        run: docker build --target runtime-storage -t django-api-starter-storage:test .
+          docker compose -f compose.yaml config --quiet
+          docker compose --profile async -f compose.yaml config --quiet
+          APP_IMAGE=example.invalid/starter@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+            APP_ENV_FILE="$PWD/deploy/production.env.example" \
+            docker compose -f compose.production.yaml --profile async config --quiet
+      - name: Shell syntax
+        run: |
+          bash -n scripts/smoke_production.sh
+          sh -n scripts/deploy.sh
+
+  production-smoke:
+    name: Production smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and exercise all runtime variants with disposable PostgreSQL
+        run: bash scripts/smoke_production.sh
 
   cache-redis:
     name: Optional Redis integration
@@ -187,8 +197,7 @@ jobs:
           cache: false
       - name: Build and start isolated S3-compatible server
         run: |
-          # Pinned upstream source includes the last upstream security release.
-          # Test fixture only: no production object-storage recommendation.
+          # Pinned test fixture only, not a production-provider recommendation.
           GOBIN="$RUNNER_TEMP/minio-bin" go install github.com/minio/minio@RELEASE.2025-10-15T17-29-55Z
           MINIO_ROOT_USER="$AWS_ACCESS_KEY_ID" MINIO_ROOT_PASSWORD="$AWS_SECRET_ACCESS_KEY" \
             "$RUNNER_TEMP/minio-bin/minio" server "$RUNNER_TEMP/minio-data" \

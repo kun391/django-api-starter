@@ -1,0 +1,51 @@
+# Standalone production runtime: do NOT merge with compose.yaml.
+# PostgreSQL, optional broker/cache and TLS proxy are independently provisioned.
+x-runtime: &runtime
+  image: ${APP_IMAGE:?Set APP_IMAGE to the reviewed image@sha256:digest}
+  env_file:
+    - path: ${APP_ENV_FILE:?Set APP_ENV_FILE to an absolute private env-file path}
+      format: raw
+  user: "10001:10001"
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=128m,mode=1777
+  volumes:
+    - private_files:/app/private-files
+  stop_grace_period: 45s
+  networks: [application]
+
+services:
+  web:
+    <<: *runtime
+    command: ["gunicorn", "--config", "config/gunicorn.py", "apps.core.wsgi:application"]
+    restart: unless-stopped
+    # Host TLS proxy only. Do not expose the application directly to the Internet.
+    ports:
+      - "127.0.0.1:${APP_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "scripts/healthcheck.py"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    <<: *runtime
+    profiles: [async]
+    command: ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
+    restart: unless-stopped
+
+  beat:
+    <<: *runtime
+    profiles: [async]
+    command: ["celery", "-A", "apps.core.celery:app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+    restart: unless-stopped
+
+volumes:
+  private_files:
+
+networks:
+  application:

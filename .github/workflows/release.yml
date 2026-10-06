@@ -1,0 +1,113 @@
+name: Publish release images
+
+# Explicit publication only. PR/push CI never logs in to a package registry.
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full merged main commit SHA whose complete CI has passed
+        required: true
+        type: string
+      version:
+        description: Stable version identifier, for example v0.1.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-publication
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha: ${{ steps.verify.outputs.sha }}
+      version: ${{ steps.verify.outputs.version }}
+      image: ${{ steps.verify.outputs.image }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact merged source and all main CI jobs
+        id: verify
+        env:
+          RELEASE_SHA: ${{ inputs.sha }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/verify_release.py
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [runtime, runtime-async, runtime-storage, runtime-full]
+    env:
+      SOURCE_SHA: ${{ needs.verify.outputs.sha }}
+      VERSION: ${{ needs.verify.outputs.version }}
+      IMAGE: ${{ needs.verify.outputs.image }}
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          persist-credentials: false
+      - name: Build once with source identity
+        run: |
+          # Unique per run/attempt: reruns do not silently overwrite a version tag.
+          TAG="$VERSION-$VARIANT-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          docker build --target "$VARIANT" \
+            --build-arg "RELEASE_SHA=$SOURCE_SHA" \
+            --build-arg "RELEASE_VERSION=$VERSION" \
+            --build-arg "SOURCE_URL=https://github.com/$GITHUB_REPOSITORY" \
+            --tag "$IMAGE:$TAG" .
+      - name: Test the exact image before publication
+        run: bash scripts/smoke_production.sh "$IMAGE:$TAG" "$VARIANT"
+      - name: Log in to GitHub Container Registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Publish tested image and record its digest
+        run: |
+          docker push "$IMAGE:$TAG"
+          docker image inspect "$IMAGE:$TAG" > /tmp/published-image.json
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+          image = json.loads(Path('/tmp/published-image.json').read_text())[0]
+          refs = [ref for ref in image['RepoDigests'] if ref.startswith(os.environ['IMAGE'] + '@sha256:')]
+          assert len(refs) == 1 and re.fullmatch(r'.+@sha256:[a-f0-9]{64}', refs[0])
+          assert image['Config']['Labels']['org.opencontainers.image.revision'] == os.environ['SOURCE_SHA']
+          manifest = {'source_sha': os.environ['SOURCE_SHA'], 'version': os.environ['VERSION'],
+                      'variant': os.environ['VARIANT'], 'platform': 'linux/amd64',
+                      'image': refs[0], 'tag': os.environ['TAG'],
+                      'workflow_run': os.environ['GITHUB_RUN_ID'], 'run_attempt': os.environ['GITHUB_RUN_ATTEMPT']}
+          Path('release-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as summary:
+              summary.write(f"### {manifest['variant']}\n\n`{manifest['image']}`\n\nSource: `{manifest['source_sha']}`\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.variant }}
+          path: release-manifest.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Registry logout
+        if: always()
+        run: docker logout ghcr.io
