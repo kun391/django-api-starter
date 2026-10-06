@@ -100,3 +100,56 @@ jobs:
 
       - name: Async production image
         run: docker build --target runtime-async -t django-api-starter-async:test .
+
+  cache-redis:
+    name: Optional Redis integration
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: django_api
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d django_api"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DJANGO_SETTINGS_MODULE: settings.test
+      POSTGRES_DB: django_api
+      POSTGRES_USER: postgres
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      TEST_REDIS_URL: redis://127.0.0.1:6379/15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: latest-known
+          enable-cache: true
+      - name: Sync optional dependencies
+        run: uv sync --locked --extra async --group dev
+      - name: Real Redis cache integration
+        run: uv run --extra async pytest tests/test_caching.py tests/test_cache_redis.py

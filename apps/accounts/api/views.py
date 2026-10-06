@@ -91,6 +91,13 @@ class UserViewSet(viewsets.ModelViewSet):
     ordering_fields = ["id", "username", "email", "date_joined"]
     ordering = ["id"]
 
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        # Profiles and administration expose personal data. Do not opt them into
+        # response caching/ETags merely to demonstrate a performance primitive.
+        response["Cache-Control"] = "no-store"
+        return response
+
     def get_permissions(self):
         if self.action == "create":
             permission_classes = [permissions.AllowAny]

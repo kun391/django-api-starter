@@ -16,5 +16,12 @@ MAILERS = {
     },
 }
 
+# Unit tests never contact a shared cache from a developer's environment.
+# Cache/backend tests override only the dedicated performance alias explicitly.
+CACHES = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    "performance": {"BACKEND": "django.core.cache.backends.dummy.DummyCache"},
+}
+
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True

@@ -63,13 +63,20 @@ def add_api_contract(result, generator, request, public):
             if method in {"post", "put", "patch"}:
                 statuses.add(415)
             idempotent = any(p.get("name") == "Idempotency-Key" for p in parameters)
+            conditional = method in {"get", "head"} and any(
+                p.get("name") == "If-None-Match" for p in parameters
+            )
             if idempotent:
                 statuses.update({409, 422})
+            if conditional:
+                statuses.add(412)
+                responses.setdefault("304", {"description": "Not Modified (no response body)."})
             for status_code in sorted(statuses):
                 responses.setdefault(str(status_code), {
                     "description": HTTPStatus(status_code).phrase,
                     "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/APIProblem"}}},
                 })
+            sensitive = path.startswith(("/api/v1/users/", "/api/v1/auth/"))
             for status_code, response in responses.items():
                 headers = response.setdefault("headers", {})
                 headers["X-Request-ID"] = {"schema": {"type": "string"}}
@@ -79,4 +86,10 @@ def add_api_contract(result, generator, request, public):
                     headers["Retry-After"] = {"schema": {"type": "string"}}
                 if idempotent and status_code.startswith("2"):
                     headers["Idempotency-Replayed"] = {"schema": {"type": "string", "enum": ["true", "false"]}}
+                if sensitive or status_code.startswith(("4", "5")):
+                    headers["Cache-Control"] = {"schema": {"type": "string", "enum": ["no-store"]}}
+                elif conditional and status_code in {"200", "304"}:
+                    headers["ETag"] = {"schema": {"type": "string"}, "description": "Weak representation validator."}
+                    headers["Cache-Control"] = {"schema": {"type": "string", "enum": ["private, no-cache, must-revalidate"]}}
+                    headers["Vary"] = {"schema": {"type": "string"}}
     return result

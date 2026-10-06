@@ -5,6 +5,8 @@ from pathlib import Path
 from corsheaders.defaults import default_headers
 from decouple import config  # type: ignore[import-untyped]
 
+from .performance import build_performance_caches
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Safe defaults: environment-specific settings opt into development behavior.
@@ -87,6 +89,9 @@ DATABASES = {
         "PORT": config("POSTGRES_PORT", default="5432"),
     }
 }
+
+# Dedicated opt-in data cache; never used by security throttles or idempotency.
+CACHES = build_performance_caches()
 
 MAILERS = {
     "default": {
@@ -183,8 +188,8 @@ CORS_ALLOWED_ORIGINS = config(
     cast=lambda value: [item.strip() for item in value.split(",") if item.strip()],
 )
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_HEADERS = (*default_headers, "x-request-id", "idempotency-key")
-CORS_EXPOSE_HEADERS = ["X-Request-ID", "Idempotency-Replayed", "Retry-After"]
+CORS_ALLOW_HEADERS = (*default_headers, "x-request-id", "idempotency-key", "if-none-match", "if-match")
+CORS_EXPOSE_HEADERS = ["X-Request-ID", "Idempotency-Replayed", "Retry-After", "ETag"]
 
 CSRF_TRUSTED_ORIGINS = config(
     "CSRF_TRUSTED_ORIGINS",

@@ -58,6 +58,14 @@ Use on-commit enqueue only for best-effort jobs. Use the transactional outbox wh
 delivery must commit with the business mutation. Outbox handlers are at-least-once and
 must be idempotent; never claim exactly-once delivery.
 
+## Caching and performance
+
+Read `docs/performance.md` before caching or changing query behavior. Cache only
+reviewed non-sensitive JSON read models; never auth decisions, ORM objects or
+correctness-critical state. Authorize before cache access. Register scoped
+invalidation in the mutation's transaction. Keep accounts no-store. Add actual
+serialization/query-count tests; do not add speculative indexes or mandatory Redis.
+
 ## Agent context
 
 For module-scoped work, start with:
