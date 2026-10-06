@@ -83,7 +83,7 @@ class OrganizationViewSet(viewsets.GenericViewSet):
                 raise serializers.ValidationError(
                     {"slug": "This slug is already in use."}
                 ) from exc
-            organization.actor_role = OrganizationMembership.Role.OWNER
+            organization.actor_role = "owner"
             return Response(
                 OrganizationSerializer(organization).data,
                 status=status.HTTP_201_CREATED,
@@ -116,11 +116,11 @@ class OrganizationMembersView(generics.GenericAPIView):
             organization_id=self.kwargs["organization_id"],
         )
         roles = (
-            (OrganizationMembership.Role.OWNER,)
+            ("owner",)
             if owner_only
             else (
-                OrganizationMembership.Role.OWNER,
-                OrganizationMembership.Role.ADMIN,
+                "owner",
+                "admin",
             )
         )
         require_roles(access, *roles)
@@ -187,7 +187,7 @@ class OrganizationMemberDetailView(generics.GenericAPIView):
             actor=self.request.user,
             organization_id=self.kwargs["organization_id"],
         )
-        require_roles(access, OrganizationMembership.Role.OWNER)
+        require_roles(access, "owner")
 
     @extend_schema(
         request=MembershipUpdateSerializer,
