@@ -127,10 +127,19 @@ class TestAPIContract:
         assert problem["$ref"].endswith("/APIProblem")
         actual = api_client.get("/api/v1/missing/").json()
         assert set(actual) == set(schema["components"]["schemas"]["APIProblem"]["required"])
-        # No endpoint silently opts into replay, especially credential endpoints.
-        for path_item in paths.values():
-            for operation in path_item.values():
-                assert not any(p.get("name") == "Idempotency-Key" for p in operation.get("parameters", []))
+        # Replay remains explicitly opt-in. Phase 13 intentionally enables it
+        # only for ticket creation; credential and unrelated endpoints stay out.
+        idempotent_operations = {
+            (path, method)
+            for path, path_item in paths.items()
+            for method, operation in path_item.items()
+            if method in {"get", "post", "put", "patch", "delete", "head", "options"}
+            and any(
+                parameter.get("name") == "Idempotency-Key"
+                for parameter in operation.get("parameters", [])
+            )
+        }
+        assert idempotent_operations == {("/api/v1/tickets/", "post")}
 
 
 def test_idempotency_schema_is_opt_in():
