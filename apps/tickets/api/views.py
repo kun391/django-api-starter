@@ -3,11 +3,10 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.core.api.conditional import ConditionalGetMixin, IF_NONE_MATCH_PARAMETER
+from apps.core.api.conditional import IF_NONE_MATCH_PARAMETER, ConditionalGetMixin
 from apps.core.api.idempotency import idempotent_post
 from apps.core.api.schema import IDEMPOTENCY_KEY_PARAMETER
 from apps.tickets import selectors, services
-from apps.tickets.models import Ticket
 
 from .filters import TicketFilter
 from .serializers import (
