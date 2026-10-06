@@ -10,7 +10,7 @@ MIGRATION_LOCK_ID = 62484319012711
 
 class Command(BaseCommand):
     help = "Apply pending migrations once, under a PostgreSQL session advisory lock."
-    requires_system_checks = []
+    requires_system_checks: list[str] = []
 
     def add_arguments(self, parser):
         parser.add_argument("--plan", action="store_true")

@@ -23,7 +23,7 @@ preload_app = False
 # Django alone interprets the explicitly opted-in protocol header. Avoid an
 # independent Gunicorn trust default (including loopback) bypassing that opt-in.
 forwarded_allow_ips = ""
-secure_scheme_headers = {}
+secure_scheme_headers: dict[str, str] = {}
 errorlog = "-"
 accesslog = "-"
 # Deliberately omit URL/query strings, request bodies, cookies and Authorization.

@@ -11,7 +11,7 @@ from django.db.migrations.executor import MigrationExecutor
 
 class Command(BaseCommand):
     help = "Validate a production/staging image before admitting traffic. Does not write data."
-    requires_system_checks = []
+    requires_system_checks: list[str] = []
 
     def add_arguments(self, parser):
         parser.add_argument("--allow-pending-migrations", action="store_true")
