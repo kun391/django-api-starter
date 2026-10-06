@@ -1,3 +1,5 @@
+from typing import cast
+
 from django.db import IntegrityError, transaction
 
 from apps.core.outbox import record_outbox_event
@@ -21,7 +23,7 @@ def create_organization(*, actor, name: str, slug: str) -> Organization:
             OrganizationMembership.objects.create(
                 organization=organization,
                 user=actor,
-                role=OrganizationMembership.Role.OWNER,
+                role="owner",
             )
             record_outbox_event(
                 topic="organizations.organization-created",
@@ -32,13 +34,13 @@ def create_organization(*, actor, name: str, slug: str) -> Organization:
             )
     except IntegrityError as exc:
         raise OrganizationSlugConflict() from exc
-    return organization
+    return cast(Organization, organization)
 
 
 def rename_organization(*, actor, organization_id, name: str) -> Organization:
     with transaction.atomic():
         access = resolve_access(actor=actor, organization_id=organization_id)
-        require_roles(access, OrganizationMembership.Role.OWNER)
+        require_roles(access, "owner")
         organization = Organization.objects.select_for_update().get(
             pk=access.organization.pk,
         )
@@ -52,7 +54,7 @@ def rename_organization(*, actor, organization_id, name: str) -> Organization:
                     "changed_fields": ["name"],
                 },
             )
-        return organization
+        return cast(Organization, organization)
 
 
 def add_member(*, actor, organization_id, user, role: str) -> OrganizationMembership:
@@ -76,7 +78,7 @@ def add_member(*, actor, organization_id, user, role: str) -> OrganizationMember
                 "role": role,
             },
         )
-        return membership
+        return cast(OrganizationMembership, membership)
 
 
 def _locked_owner_ids(organization_id) -> list[int]:
@@ -84,7 +86,7 @@ def _locked_owner_ids(organization_id) -> list[int]:
         OrganizationMembership.objects.select_for_update()
         .filter(
             organization_id=organization_id,
-            role=OrganizationMembership.Role.OWNER,
+            role="owner",
         )
         .order_by("pk")
         .values_list("pk", flat=True)
@@ -106,8 +108,8 @@ def change_member_role(*, actor, organization_id, user_id: int, role: str):
         if membership.role == role:
             return membership
         if (
-            membership.role == OrganizationMembership.Role.OWNER
-            and role != OrganizationMembership.Role.OWNER
+            membership.role == "owner"
+            and role != "owner"
             and owner_ids == [membership.pk]
         ):
             raise MembershipConflict("An organization must retain at least one owner.")
