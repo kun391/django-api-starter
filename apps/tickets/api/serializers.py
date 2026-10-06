@@ -23,6 +23,7 @@ class TicketSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "owner_id",
+            "organization_id",
             "title",
             "description",
             "status",
