@@ -1,6 +1,7 @@
 """Regression coverage for late storage I/O, content corruption and CSRF."""
 
 from io import BytesIO
+from tempfile import SpooledTemporaryFile
 from unittest.mock import patch
 
 import pytest
@@ -66,11 +67,15 @@ def test_short_reads_are_supported_and_response_closes_spool(backend, user, auth
             return super().read(min(size, 2))
 
     source = ShortReads(b"original")
-    with patch.object(backend, "open", return_value=source):
+    # The test client wraps streaming_content and resets file_to_stream. Keep
+    # the real spool handle rather than depending on that response attribute.
+    spool = SpooledTemporaryFile(max_size=1024 * 1024, mode="w+b")
+    with patch.object(backend, "open", return_value=source), patch(
+        "apps.files.services.SpooledTemporaryFile", return_value=spool,
+    ):
         response = authenticated_client.get(f"/api/v1/files/{record.pk}/download/", HTTP_IF_NONE_MATCH="*")
-    assert response.status_code == 200 and "ETag" not in response
-    spool = response.file_to_stream
     try:
+        assert response.status_code == 200 and "ETag" not in response
         assert b"".join(response.streaming_content) == b"original"
     finally:
         response.close()
