@@ -11,8 +11,15 @@ public_api:
   - PATCH /api/v1/tickets/{id}/
   - POST /api/v1/tickets/{id}/attachments/
   - GET /api/v1/tickets/summary/
+  - GET /api/v1/organizations/{organization_id}/tickets/
+  - POST /api/v1/organizations/{organization_id}/tickets/
+  - GET /api/v1/organizations/{organization_id}/tickets/{id}/
+  - PATCH /api/v1/organizations/{organization_id}/tickets/{id}/
+  - POST /api/v1/organizations/{organization_id}/tickets/{id}/attachments/
+  - GET /api/v1/organizations/{organization_id}/tickets/summary/
 depends_on:
   - files
+  - organizations
 uses:
   - core.idempotency
   - core.outbox
@@ -24,8 +31,10 @@ emits:
   - tickets.attachment-added
 consumes: []
 rules:
-  - regular users may see and mutate only their own tickets
-  - staff may read all tickets and change status
-  - resolved tickets are read-only to regular owners
+  - personal tickets have no organization and preserve the Phase 13 owner/staff policy
+  - tenant tickets require persisted organization membership resolved from the URL tenant ID
+  - Django staff status never bypasses tenant membership
+  - tenant owner/admin may change status; members may update non-status fields until resolved
+  - tenant and personal list/detail APIs never expose each other's rows
   - attachments must already be READY private files owned by the attaching actor
-  - ticket creation is idempotent and records its outbox event in the same transaction
+  - ticket creation is idempotent and tenant idempotency scopes include server-resolved organization ID

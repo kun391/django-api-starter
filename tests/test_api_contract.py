@@ -139,7 +139,11 @@ class TestAPIContract:
                 for parameter in operation.get("parameters", [])
             )
         }
-        assert idempotent_operations == {("/api/v1/tickets/", "post")}
+        assert idempotent_operations == {
+            ("/api/v1/organizations/", "post"),
+            ("/api/v1/organizations/{organization_id}/tickets/", "post"),
+            ("/api/v1/tickets/", "post"),
+        }
 
 
 def test_idempotency_schema_is_opt_in():

@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.files.models import PrivateFile
+from apps.organizations.models import Organization
 
 
 class Ticket(models.Model):
@@ -18,6 +19,13 @@ class Ticket(models.Model):
         HIGH = "high"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        Organization,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="tickets",
+    )
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -44,6 +52,10 @@ class Ticket(models.Model):
             models.Index(
                 fields=["owner", "status", "-created_at"],
                 name="tickets_owner_status_idx",
+            ),
+            models.Index(
+                fields=["organization", "status", "-created_at"],
+                name="tickets_org_status_idx",
             ),
         ]
 

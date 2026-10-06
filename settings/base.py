@@ -41,6 +41,7 @@ LOCAL_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.files",
+    "apps.organizations",
     "apps.tickets",
 ]
 

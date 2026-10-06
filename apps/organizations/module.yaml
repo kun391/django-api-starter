@@ -1,0 +1,33 @@
+name: organizations
+type: domain
+owns:
+  - organization tenant identity
+  - organization memberships
+  - fixed owner/admin/member role policy
+public_api:
+  - GET /api/v1/organizations/
+  - POST /api/v1/organizations/
+  - GET /api/v1/organizations/{id}/
+  - PATCH /api/v1/organizations/{id}/
+  - GET /api/v1/organizations/{id}/members/
+  - POST /api/v1/organizations/{id}/members/
+  - PATCH /api/v1/organizations/{id}/members/{user_id}/
+  - DELETE /api/v1/organizations/{id}/members/{user_id}/
+depends_on: []
+uses:
+  - django.auth
+  - core.idempotency
+  - core.outbox
+emits:
+  - organizations.organization-created
+  - organizations.organization-updated
+  - organizations.membership-added
+  - organizations.membership-updated
+  - organizations.membership-removed
+consumes: []
+rules:
+  - tenant identity is resolved from URL organization ID plus authenticated DB membership
+  - client-supplied tenant or role headers never grant access
+  - Django staff status does not bypass organization membership
+  - owner manages membership roles; admin may inspect membership; member may not
+  - an organization must retain at least one owner

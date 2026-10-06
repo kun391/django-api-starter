@@ -36,3 +36,17 @@ Outbox delivery is at-least-once. The reference handlers are intentionally
 idempotent no-ops so the default dispatcher can drain demonstration events
 without inventing an external integration. Replace them with real idempotent
 consumers when a product integration exists.
+
+## Phase 14 tenant mode
+
+Personal routes remain backward compatible and only operate on tickets where
+`organization_id IS NULL`.
+
+The same reference workflow is also exposed beneath
+`/api/v1/organizations/{organization_id}/tickets/`. Tenant access is resolved
+from the authenticated user plus persisted organization membership. No tenant or
+role request header is trusted, and Django staff does not bypass membership.
+
+Tenant ticket creation uses a server-defined idempotency scope containing the
+resolved organization UUID, and tenant summary caching is scoped and invalidated
+per organization.
