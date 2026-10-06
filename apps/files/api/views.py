@@ -90,6 +90,10 @@ class PrivateFileView(APIView):
 
 def parse_upload(request, serializer_class):
     data = request.data
+    # Session CSRF may parse Django's POST/FILES before DRF selects its parser.
+    # Preserve a receive-side rejection even when DRF reuses that parsed form.
+    if getattr(request._request, "private_upload_rejected", False):
+        raise UploadLimitExceeded()
     allowed = set(serializer_class().fields)
     if set(data) - allowed or any(len(data.getlist(key)) != 1 for key in data):
         raise serializers.ValidationError("Unknown or repeated multipart fields.")
