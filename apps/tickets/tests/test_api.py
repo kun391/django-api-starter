@@ -220,3 +220,164 @@ def test_anonymous_access_is_rejected(api_client):
         ).status_code
         == 401
     )
+
+
+def _organization(user, *, name="Tenant", slug="tenant", role="member"):
+    from apps.organizations.models import Organization, OrganizationMembership
+
+    organization = Organization.objects.create(name=name, slug=slug)
+    OrganizationMembership.objects.create(
+        organization=organization,
+        user=user,
+        role=role,
+    )
+    return organization
+
+
+def _organization_ticket_list(organization):
+    return reverse(
+        "organization-ticket-list",
+        kwargs={"organization_id": organization.pk},
+    )
+
+
+def test_tenant_tickets_are_isolated_from_personal_and_other_tenants(
+    authenticated_client,
+    user,
+):
+    organization = _organization(user)
+    personal = _create(authenticated_client, key="personal-isolation").json()
+    tenant_response = authenticated_client.post(
+        _organization_ticket_list(organization),
+        _ticket_payload(title="Tenant ticket"),
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="tenant-create",
+    )
+    assert tenant_response.status_code == 201
+    tenant = tenant_response.json()
+    assert tenant["organization_id"] == str(organization.pk)
+
+    personal_rows = authenticated_client.get(reverse("ticket-list")).json()["results"]
+    tenant_rows = authenticated_client.get(
+        _organization_ticket_list(organization),
+    ).json()["results"]
+    assert [row["id"] for row in personal_rows] == [personal["id"]]
+    assert [row["id"] for row in tenant_rows] == [tenant["id"]]
+
+    other = _organization(user, name="Other", slug="other")
+    assert authenticated_client.get(
+        reverse(
+            "organization-ticket-detail",
+            kwargs={"organization_id": other.pk, "pk": tenant["id"]},
+        ),
+    ).status_code == 404
+
+
+def test_non_member_and_staff_cannot_access_tenant_tickets(user, admin_user):
+    owner = type(user).objects.create_user(
+        username="tenant-owner",
+        email="tenant-owner@example.com",
+        password="pass",
+    )
+    organization = _organization(owner, role="owner")
+
+    for actor in (user, admin_user):
+        client = APIClient()
+        client.force_authenticate(actor)
+        response = client.get(
+            _organization_ticket_list(organization),
+            HTTP_X_TENANT_ID=str(organization.pk),
+            HTTP_X_ROLE="owner",
+        )
+        assert response.status_code == 404
+
+
+def test_tenant_admin_can_change_status_but_member_cannot(user):
+    from apps.organizations.models import OrganizationMembership
+
+    organization = _organization(user, role="member")
+    client = APIClient()
+    client.force_authenticate(user)
+    created = client.post(
+        _organization_ticket_list(organization),
+        _ticket_payload(),
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="tenant-role-create",
+    ).json()
+    detail = reverse(
+        "organization-ticket-detail",
+        kwargs={"organization_id": organization.pk, "pk": created["id"]},
+    )
+    assert client.patch(
+        detail,
+        {"status": "resolved"},
+        format="json",
+    ).status_code == 403
+
+    OrganizationMembership.objects.filter(
+        organization=organization,
+        user=user,
+    ).update(role="admin")
+    response = client.patch(
+        detail,
+        {"status": "resolved"},
+        format="json",
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "resolved"
+
+
+def test_same_idempotency_key_isolated_between_tenants(authenticated_client, user):
+    first_org = _organization(user, name="One", slug="one")
+    second_org = _organization(user, name="Two", slug="two")
+
+    first = authenticated_client.post(
+        _organization_ticket_list(first_org),
+        _ticket_payload(title="One"),
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="same-key",
+    )
+    second = authenticated_client.post(
+        _organization_ticket_list(second_org),
+        _ticket_payload(title="Two"),
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="same-key",
+    )
+    assert first.status_code == second.status_code == 201
+    assert first.json()["id"] != second.json()["id"]
+    assert Ticket.objects.filter(organization__isnull=False).count() == 2
+
+
+@override_settings(
+    CACHES={
+        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+        "performance": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "tenant-ticket-summary-tests",
+        },
+    },
+)
+def test_tenant_summary_cache_is_scoped_and_invalidated(authenticated_client, user):
+    caches["performance"].clear()
+    first_org = _organization(user, name="One", slug="one")
+    second_org = _organization(user, name="Two", slug="two")
+
+    first_summary = reverse(
+        "organization-ticket-summary",
+        kwargs={"organization_id": first_org.pk},
+    )
+    second_summary = reverse(
+        "organization-ticket-summary",
+        kwargs={"organization_id": second_org.pk},
+    )
+    assert authenticated_client.get(first_summary).json()["total"] == 0
+    assert authenticated_client.get(second_summary).json()["total"] == 0
+
+    authenticated_client.post(
+        _organization_ticket_list(first_org),
+        _ticket_payload(),
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="tenant-summary-create",
+    )
+    assert authenticated_client.get(first_summary).json()["total"] == 1
+    assert authenticated_client.get(second_summary).json()["total"] == 0
