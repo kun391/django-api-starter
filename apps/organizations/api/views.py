@@ -127,6 +127,8 @@ class OrganizationMembersView(generics.GenericAPIView):
         return access
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return OrganizationMembership.objects.none()
         access = self._access()
         return (
             OrganizationMembership.objects.filter(
