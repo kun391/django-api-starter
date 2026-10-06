@@ -163,6 +163,14 @@ python scripts/build_ai_context.py accounts --include api/views.py
 
 `AGENTS.md` is the source of truth for coding-agent rules.
 
+## Caching and performance
+
+[Phase 10 guide](docs/performance.md) covers opt-in JSON cache-aside, scoped
+post-commit invalidation, conditional GET/HEAD, and query-count guardrails.
+The performance cache defaults to disabled. Redis is optional and uses the
+existing `async` dependency extra. Accounts/auth remain no-store; security
+throttles and idempotency do not depend on the cache.
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:
@@ -177,7 +185,8 @@ uv run python scripts/check_architecture.py
 uv run pytest
 ```
 
-CI also builds the production Docker target.
+CI also builds both production Docker targets and runs optional real-Redis cache
+integration in a separate job; the minimal PostgreSQL job needs no Redis.
 
 ## Useful Make targets
 
