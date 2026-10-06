@@ -99,7 +99,11 @@ def _cache_warning(operation: str) -> None:
 
 def _load_json(load: Callable[[], JSONValue]) -> tuple[JSONValue, str]:
     value = load()
-    return value, _json(value)
+    encoded = _json(value)
+    # Normalize misses through the same canonical JSON representation used by
+    # cache hits. Besides detaching mutable values, this keeps rendered JSON
+    # byte-stable across miss -> hit transitions (important for ETags).
+    return cast(JSONValue, json.loads(encoded)), encoded
 
 
 def _reject_constant(value: str):

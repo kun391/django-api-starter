@@ -1,0 +1,31 @@
+name: tickets
+type: domain
+owns:
+  - support-style ticket workflow
+  - ticket status and priority
+  - ticket-to-private-file attachment relationship
+public_api:
+  - GET /api/v1/tickets/
+  - POST /api/v1/tickets/
+  - GET /api/v1/tickets/{id}/
+  - PATCH /api/v1/tickets/{id}/
+  - POST /api/v1/tickets/{id}/attachments/
+  - GET /api/v1/tickets/summary/
+depends_on:
+  - files
+uses:
+  - core.idempotency
+  - core.outbox
+  - core.caching
+  - core.api-contract
+emits:
+  - tickets.ticket-created
+  - tickets.ticket-updated
+  - tickets.attachment-added
+consumes: []
+rules:
+  - regular users may see and mutate only their own tickets
+  - staff may read all tickets and change status
+  - resolved tickets are read-only to regular owners
+  - attachments must already be READY private files owned by the attaching actor
+  - ticket creation is idempotent and records its outbox event in the same transaction

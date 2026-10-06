@@ -55,6 +55,12 @@ def test_cached_values_are_detached_json(cache_backend):
     assert read(Mock(side_effect=AssertionError("must hit"))) == {"items": [1]}
 
 
+def test_miss_and_hit_use_same_canonical_mapping_order(cache_backend):
+    first = read(lambda: {"z": 1, "a": 2})
+    second = read(Mock(side_effect=AssertionError("must hit")))
+    assert list(first) == list(second) == ["a", "z"]
+
+
 def test_key_canonicalization_and_isolation(cache_backend):
     load = Mock()
     load.side_effect = lambda: {"load": load.call_count}
