@@ -23,7 +23,7 @@ def ticket_summary(actor):
     if not actor.is_authenticated or not actor.is_active:
         raise PermissionError("An active authenticated actor is required.")
 
-    scope = f"staff:{actor.pk}" if actor.is_staff else f"user:{actor.pk}"
+    scope = "staff:global" if actor.is_staff else f"user:{actor.pk}"
 
     def load():
         queryset = visible_tickets(actor)
