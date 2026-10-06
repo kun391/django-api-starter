@@ -56,7 +56,8 @@ def test_cached_values_are_detached_json(cache_backend):
 
 
 def test_key_canonicalization_and_isolation(cache_backend):
-    load = Mock(side_effect=lambda: {"load": load.call_count})
+    load = Mock()
+    load.side_effect = lambda: {"load": load.call_count}
     assert read(load, key={"page": 1, "language": "en"}) == {"load": 1}
     assert read(load, key={"language": "en", "page": 1}) == {"load": 1}
     read(load, key={"page": 2, "language": "en"})
