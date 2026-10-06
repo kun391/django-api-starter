@@ -192,6 +192,16 @@ The optional local worker shares the private volume; S3 cleanup must use the sam
 bucket/configuration and storage dependencies as the API. No S3 service is added
 to the default development stack.
 
+## Reference business module (Phase 13)
+
+The `tickets` module is the end-to-end proof that the starter foundations work
+together in a real business flow: owner/staff permissions, strict API queries and
+pagination, PostgreSQL idempotent create, transactional outbox, reviewed summary
+caching with commit-aware invalidation, private-file attachments, and the existing
+runtime/worker deployment conventions.
+
+See [apps/tickets/README.md](apps/tickets/README.md) for the API flow and invariants.
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:
