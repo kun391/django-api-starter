@@ -10,22 +10,15 @@ from .models import Ticket, TicketAttachment
 from .selectors import SUMMARY_CACHE
 
 
-def _summary_scope(owner_id, *, staff_actor_id=None):
-    if staff_actor_id is not None:
-        return f"staff:{staff_actor_id}"
-    return f"user:{owner_id}"
-
-
-def _invalidate_summary(*, owner_id, actor):
+def _invalidate_summary(*, owner_id):
     invalidate_on_commit(
         SUMMARY_CACHE,
-        scope=_summary_scope(owner_id),
+        scope=f"user:{owner_id}",
     )
-    if actor.is_staff:
-        invalidate_on_commit(
-            SUMMARY_CACHE,
-            scope=_summary_scope(owner_id, staff_actor_id=actor.pk),
-        )
+    invalidate_on_commit(
+        SUMMARY_CACHE,
+        scope="staff:global",
+    )
 
 
 def _locked_ticket(ticket_id, *, actor):
@@ -54,7 +47,7 @@ def create_ticket(*, actor, title, description="", priority=Ticket.Priority.NORM
                 "priority": ticket.priority,
             },
         )
-        _invalidate_summary(owner_id=ticket.owner_id, actor=actor)
+        _invalidate_summary(owner_id=ticket.owner_id)
     return ticket
 
 
@@ -88,7 +81,7 @@ def update_ticket(*, actor, ticket_id, changes):
                     "status": ticket.status,
                 },
             )
-            _invalidate_summary(owner_id=ticket.owner_id, actor=actor)
+            _invalidate_summary(owner_id=ticket.owner_id)
     return ticket
 
 
@@ -105,5 +98,5 @@ def attach_file(*, actor, ticket_id, file_id):
                 "file_id": str(record.pk),
             },
         )
-        _invalidate_summary(owner_id=ticket.owner_id, actor=actor)
+        _invalidate_summary(owner_id=ticket.owner_id)
     return attachment
