@@ -14,7 +14,7 @@ starter's existing foundations together instead of introducing another framework
 - Transactions/outbox: creates, updates and attachment links emit durable events
   in the same database transaction as the business mutation.
 - Caching: `GET /api/v1/tickets/summary/` caches a reviewed JSON read model and
-  invalidates its scope after committed mutations.
+  invalidates both owner and staff scopes after committed mutations.
 - Private files: upload through `/api/v1/files/`, then attach the READY file ID
   to a ticket. File download authorization remains owned by the files module.
 - Deployment: no new runtime service is required. PostgreSQL is authoritative;
@@ -32,6 +32,7 @@ starter's existing foundations together instead of introducing another framework
 6. Staff may PATCH `status`; normal owners may update title, description and
    priority until the ticket is resolved.
 
-Outbox delivery is at-least-once. This module deliberately has no external event
-handler because the durable event is the integration boundary; a real product
-consumer must be idempotent.
+Outbox delivery is at-least-once. The reference handlers are intentionally
+idempotent no-ops so the default dispatcher can drain demonstration events
+without inventing an external integration. Replace them with real idempotent
+consumers when a product integration exists.
