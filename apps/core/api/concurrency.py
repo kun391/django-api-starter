@@ -61,7 +61,7 @@ def require_if_match(header_value: str | None, *, current_etag: str) -> None:
 
 def mark_resource_response(response: Response, *, etag: str) -> Response:
     response["ETag"] = etag
-    response._strong_resource_validator = True  # type: ignore[attr-defined]
+    response._strong_resource_validator = True
     return response
 
 
