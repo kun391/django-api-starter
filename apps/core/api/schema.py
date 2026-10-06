@@ -64,11 +64,16 @@ def add_api_contract(result, generator, request, public):
             conditional = method in {"get", "head"} and any(
                 p.get("name") == "If-None-Match" for p in parameters
             )
+            write_precondition = method in {"put", "patch", "delete"} and any(
+                p.get("name") == "If-Match" for p in parameters
+            )
             if idempotent:
                 statuses.update({409, 422})
             if conditional:
                 statuses.add(412)
                 responses.setdefault("304", {"description": "Not Modified (no response body)."})
+            if write_precondition:
+                statuses.update({412, 428})
             for status_code in sorted(statuses):
                 responses.setdefault(str(status_code), {
                     "description": HTTPStatus(status_code).phrase,
@@ -84,6 +89,11 @@ def add_api_contract(result, generator, request, public):
                     headers["Retry-After"] = {"schema": {"type": "string"}}
                 if idempotent and status_code.startswith("2"):
                     headers["Idempotency-Replayed"] = {"schema": {"type": "string", "enum": ["true", "false"]}}
+                if write_precondition and status_code.startswith("2"):
+                    headers["ETag"] = {
+                        "schema": {"type": "string"},
+                        "description": "Strong validator for the updated resource.",
+                    }
                 if sensitive or status_code.startswith(("4", "5")):
                     headers["Cache-Control"] = {"schema": {"type": "string", "enum": ["no-store"]}}
                 elif conditional and status_code in {"200", "304"}:

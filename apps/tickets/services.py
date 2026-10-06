@@ -2,6 +2,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.http import Http404
 
+from apps.core.api.concurrency import require_if_match, resource_etag
 from apps.core.caching import invalidate_on_commit
 from apps.core.outbox import record_outbox_event
 from apps.files import services as file_services
@@ -47,6 +48,15 @@ def _locked_organization_ticket(ticket_id, *, organization_id):
     return ticket
 
 
+def _etag(ticket):
+    return resource_etag("ticket", ticket.pk, ticket.revision)
+
+
+def _bump_revision(ticket):
+    ticket.revision += 1
+    return ticket.revision
+
+
 def create_ticket(*, actor, title, description="", priority=Ticket.Priority.NORMAL):
     with transaction.atomic():
         ticket = Ticket.objects.create(
@@ -62,6 +72,7 @@ def create_ticket(*, actor, title, description="", priority=Ticket.Priority.NORM
                 "owner_id": ticket.owner_id,
                 "organization_id": None,
                 "priority": ticket.priority,
+                "revision": ticket.revision,
             },
         )
         _invalidate_personal_summary(owner_id=ticket.owner_id)
@@ -92,6 +103,7 @@ def create_organization_ticket(
                 "owner_id": ticket.owner_id,
                 "organization_id": str(access.organization.pk),
                 "priority": ticket.priority,
+                "revision": ticket.revision,
             },
         )
         _invalidate_organization_summary(
@@ -100,7 +112,7 @@ def create_organization_ticket(
     return ticket
 
 
-def update_ticket(*, actor, ticket_id, changes):
+def update_ticket(*, actor, ticket_id, changes, if_match):
     with transaction.atomic():
         ticket = _locked_personal_ticket(ticket_id, actor=actor)
 
@@ -109,6 +121,8 @@ def update_ticket(*, actor, ticket_id, changes):
             raise PermissionDenied("Only staff may change ticket status.")
         if ticket.status == Ticket.Status.RESOLVED and not actor.is_staff:
             raise PermissionDenied("Resolved tickets are read-only for their owner.")
+
+        require_if_match(if_match, current_etag=_etag(ticket))
 
         changed_fields = []
         for field in ("title", "description", "priority"):
@@ -120,7 +134,8 @@ def update_ticket(*, actor, ticket_id, changes):
             changed_fields.append("status")
 
         if changed_fields:
-            ticket.save(update_fields=[*changed_fields, "updated_at"])
+            _bump_revision(ticket)
+            ticket.save(update_fields=[*changed_fields, "revision", "updated_at"])
             record_outbox_event(
                 topic="tickets.ticket-updated",
                 payload={
@@ -129,6 +144,7 @@ def update_ticket(*, actor, ticket_id, changes):
                     "organization_id": None,
                     "changed_fields": sorted(changed_fields),
                     "status": ticket.status,
+                    "revision": ticket.revision,
                 },
             )
             _invalidate_personal_summary(owner_id=ticket.owner_id)
@@ -141,6 +157,7 @@ def update_organization_ticket(
     organization_id,
     ticket_id,
     changes,
+    if_match,
 ):
     access = resolve_access(actor=actor, organization_id=organization_id)
     with transaction.atomic():
@@ -155,6 +172,8 @@ def update_organization_ticket(
         if ticket.status == Ticket.Status.RESOLVED and not access.can_manage_tickets:
             raise PermissionDenied("Resolved tickets are read-only for members.")
 
+        require_if_match(if_match, current_etag=_etag(ticket))
+
         changed_fields = []
         for field in ("title", "description", "priority"):
             if field in changes:
@@ -165,7 +184,8 @@ def update_organization_ticket(
             changed_fields.append("status")
 
         if changed_fields:
-            ticket.save(update_fields=[*changed_fields, "updated_at"])
+            _bump_revision(ticket)
+            ticket.save(update_fields=[*changed_fields, "revision", "updated_at"])
             record_outbox_event(
                 topic="tickets.ticket-updated",
                 payload={
@@ -174,6 +194,7 @@ def update_organization_ticket(
                     "organization_id": str(access.organization.pk),
                     "changed_fields": sorted(changed_fields),
                     "status": ticket.status,
+                    "revision": ticket.revision,
                 },
             )
             _invalidate_organization_summary(
@@ -187,6 +208,8 @@ def attach_file(*, actor, ticket_id, file_id):
         ticket = _locked_personal_ticket(ticket_id, actor=actor)
         record = file_services.owned_file(file_id, actor=actor)
         attachment = TicketAttachment.objects.create(ticket=ticket, file=record)
+        _bump_revision(ticket)
+        ticket.save(update_fields=["revision", "updated_at"])
         record_outbox_event(
             topic="tickets.attachment-added",
             payload={
@@ -194,6 +217,7 @@ def attach_file(*, actor, ticket_id, file_id):
                 "owner_id": ticket.owner_id,
                 "organization_id": None,
                 "file_id": str(record.pk),
+                "revision": ticket.revision,
             },
         )
         _invalidate_personal_summary(owner_id=ticket.owner_id)
@@ -215,6 +239,8 @@ def attach_organization_file(
         )
         record = file_services.owned_file(file_id, actor=actor)
         attachment = TicketAttachment.objects.create(ticket=ticket, file=record)
+        _bump_revision(ticket)
+        ticket.save(update_fields=["revision", "updated_at"])
         record_outbox_event(
             topic="tickets.attachment-added",
             payload={
@@ -222,6 +248,7 @@ def attach_organization_file(
                 "owner_id": ticket.owner_id,
                 "organization_id": str(access.organization.pk),
                 "file_id": str(record.pk),
+                "revision": ticket.revision,
             },
         )
         _invalidate_organization_summary(
