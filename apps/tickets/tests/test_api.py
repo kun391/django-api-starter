@@ -1,11 +1,11 @@
+import pytest
 from django.core.cache import caches
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
-import pytest
-from rest_framework.test import APIClient
 
 from apps.core.models import IdempotencyRecord, OutboxEvent
+from apps.core.outbox import process_outbox_batch
 from apps.files import services as file_services
 from apps.tickets.models import Ticket, TicketAttachment
 
@@ -42,6 +42,9 @@ def test_create_replay_is_idempotent_and_outbox_is_atomic(authenticated_client):
     assert IdempotencyRecord.objects.count() == 1
     event = OutboxEvent.objects.get(topic="tickets.ticket-created")
     assert event.payload["ticket_id"] == first.json()["id"]
+    assert process_outbox_batch() == 1
+    event.refresh_from_db()
+    assert event.published_at is not None
 
 
 def test_owner_scope_staff_visibility_and_status_permission(
