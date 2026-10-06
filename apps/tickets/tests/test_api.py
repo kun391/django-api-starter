@@ -69,10 +69,13 @@ def test_owner_scope_staff_visibility_and_status_permission(
     )
     assert response.status_code == 403
 
+    detail = reverse("ticket-detail", args=[own["id"]])
+    etag = authenticated_client.get(detail)["ETag"]
     response = staff_client.patch(
-        reverse("ticket-detail", args=[own["id"]]),
+        detail,
         {"status": "resolved"},
         format="json",
+        HTTP_IF_MATCH=etag,
     )
     assert response.status_code == 200
     assert response.json()["status"] == "resolved"
@@ -318,10 +321,12 @@ def test_tenant_admin_can_change_status_but_member_cannot(user):
         organization=organization,
         user=user,
     ).update(role="admin")
+    etag = client.get(detail)["ETag"]
     response = client.patch(
         detail,
         {"status": "resolved"},
         format="json",
+        HTTP_IF_MATCH=etag,
     )
     assert response.status_code == 200
     assert response.json()["status"] == "resolved"
@@ -381,3 +386,158 @@ def test_tenant_summary_cache_is_scoped_and_invalidated(authenticated_client, us
     )
     assert authenticated_client.get(first_summary).json()["total"] == 1
     assert authenticated_client.get(second_summary).json()["total"] == 0
+
+
+def test_ticket_patch_requires_if_match_and_rejects_stale_validator(
+    authenticated_client,
+):
+    created = _create(authenticated_client, key="concurrency-create")
+    assert created.status_code == 201
+    assert created["ETag"].startswith('"')
+    assert not created["ETag"].startswith('W/"')
+    ticket_id = created.json()["id"]
+    detail = reverse("ticket-detail", args=[ticket_id])
+
+    current = authenticated_client.get(detail)
+    etag = current["ETag"]
+    assert current.json()["revision"] == 1
+
+    missing = authenticated_client.patch(
+        detail,
+        {"title": "Missing precondition"},
+        format="json",
+    )
+    assert missing.status_code == 428
+    assert missing.json()["code"] == "precondition_required"
+
+    updated = authenticated_client.patch(
+        detail,
+        {"title": "First writer"},
+        format="json",
+        HTTP_IF_MATCH=etag,
+    )
+    assert updated.status_code == 200
+    assert updated.json()["revision"] == 2
+    assert updated["ETag"] != etag
+
+    stale = authenticated_client.patch(
+        detail,
+        {"title": "Stale writer"},
+        format="json",
+        HTTP_IF_MATCH=etag,
+    )
+    assert stale.status_code == 412
+    assert stale.json()["code"] == "precondition_failed"
+
+    ticket = Ticket.objects.get(pk=ticket_id)
+    assert ticket.title == "First writer"
+    assert ticket.revision == 2
+
+
+def test_weak_validator_is_not_accepted_for_ticket_write(authenticated_client):
+    created = _create(authenticated_client, key="weak-validator-create")
+    detail = reverse("ticket-detail", args=[created.json()["id"]])
+    etag = authenticated_client.get(detail)["ETag"]
+
+    response = authenticated_client.patch(
+        detail,
+        {"title": "Weak write"},
+        format="json",
+        HTTP_IF_MATCH=f"W/{etag}",
+    )
+    assert response.status_code == 412
+    assert response.json()["code"] == "precondition_failed"
+
+
+def test_ticket_detail_supports_strong_conditional_get(authenticated_client):
+    created = _create(authenticated_client, key="strong-get-create")
+    detail = reverse("ticket-detail", args=[created.json()["id"]])
+    first = authenticated_client.get(detail)
+    assert first["ETag"].startswith('"')
+    assert not first["ETag"].startswith('W/"')
+
+    not_modified = authenticated_client.get(
+        detail,
+        HTTP_IF_NONE_MATCH=first["ETag"],
+    )
+    assert not_modified.status_code == 304
+    assert not_modified["ETag"] == first["ETag"]
+
+
+def test_attachment_advances_ticket_revision_and_invalidates_old_etag(
+    authenticated_client,
+    user,
+    settings,
+    tmp_path,
+):
+    backend = {
+        "BACKEND": "apps.files.backends.PrivateFileSystemStorage",
+        "OPTIONS": {"location": str(tmp_path / "private-concurrency")},
+    }
+    settings.STORAGES = {**settings.STORAGES, "private": backend, "default": backend}
+    settings.PRIVATE_FILE_POLICIES = {
+        "document": {
+            "max_bytes": 1024,
+            "validators": {".txt": "apps.files.validation.validate_text"},
+        },
+    }
+
+    created = _create(authenticated_client, key="attachment-revision-create")
+    ticket_id = created.json()["id"]
+    detail = reverse("ticket-detail", args=[ticket_id])
+    old_etag = authenticated_client.get(detail)["ETag"]
+    owned = file_services.upload_file(
+        actor=user,
+        upload=SimpleUploadedFile("revision.txt", b"private"),
+    )
+    attached = authenticated_client.post(
+        reverse("ticket-attach", args=[ticket_id]),
+        {"file_id": str(owned.pk)},
+        format="json",
+    )
+    assert attached.status_code == 201
+
+    refreshed = authenticated_client.get(detail)
+    assert refreshed.json()["revision"] == 2
+    assert refreshed["ETag"] != old_etag
+    stale = authenticated_client.patch(
+        detail,
+        {"title": "stale after attachment"},
+        format="json",
+        HTTP_IF_MATCH=old_etag,
+    )
+    assert stale.status_code == 412
+
+
+def test_tenant_ticket_patch_uses_same_write_precondition(user):
+    organization = _organization(user, role="admin")
+    client = APIClient()
+    client.force_authenticate(user)
+    created = client.post(
+        _organization_ticket_list(organization),
+        _ticket_payload(),
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="tenant-concurrency-create",
+    )
+    detail = reverse(
+        "organization-ticket-detail",
+        kwargs={"organization_id": organization.pk, "pk": created.json()["id"]},
+    )
+    etag = client.get(detail)["ETag"]
+
+    first = client.patch(
+        detail,
+        {"title": "Tenant first writer"},
+        format="json",
+        HTTP_IF_MATCH=etag,
+    )
+    assert first.status_code == 200
+    assert first.json()["revision"] == 2
+
+    stale = client.patch(
+        detail,
+        {"title": "Tenant stale writer"},
+        format="json",
+        HTTP_IF_MATCH=etag,
+    )
+    assert stale.status_code == 412

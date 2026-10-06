@@ -144,6 +144,24 @@ class TestAPIContract:
             ("/api/v1/organizations/{organization_id}/tickets/", "post"),
             ("/api/v1/tickets/", "post"),
         }
+        write_preconditions = {
+            (path, method)
+            for path, path_item in paths.items()
+            for method, operation in path_item.items()
+            if method in {"put", "patch", "delete"}
+            and any(
+                parameter.get("name") == "If-Match"
+                for parameter in operation.get("parameters", [])
+            )
+        }
+        assert write_preconditions == {
+            ("/api/v1/organizations/{organization_id}/tickets/{id}/", "patch"),
+            ("/api/v1/tickets/{id}/", "patch"),
+        }
+        for path, method in write_preconditions:
+            operation = paths[path][method]
+            assert {"412", "428"} <= operation["responses"].keys()
+            assert "ETag" in operation["responses"]["200"]["headers"]
 
 
 def test_idempotency_schema_is_opt_in():

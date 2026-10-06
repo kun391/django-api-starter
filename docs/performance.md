@@ -195,8 +195,8 @@ A matching `If-None-Match` (weak/strong list member or wildcard) produces an emp
 changed/malformed/unmatched validator returns 200. HEAD has no body and retains
 the representation validator and GET content length. Django handles precondition
 ordering; failed read `If-Match` preconditions retain the Phase 7 412 Problem
-Details body (`precondition_failed`). Weak ETags are not write-concurrency tokens.
-No PUT/PATCH/DELETE optimistic-concurrency feature is added.
+Details body (`precondition_failed`). Weak ETags are not write-concurrency tokens. Phase 15 adds a separate opt-in
+strong resource ETag / If-Match contract for writes; see docs/api-contract.md.
 
 Errors, non-200 responses, writes, streams, non-JSON content, responses with
 cookies, and responses with an existing Cache-Control or ETag are untouched.

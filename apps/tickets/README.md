@@ -50,3 +50,14 @@ role request header is trusted, and Django staff does not bypass membership.
 Tenant ticket creation uses a server-defined idempotency scope containing the
 resolved organization UUID, and tenant summary caching is scoped and invalidated
 per organization.
+
+
+## Phase 15 write concurrency
+
+Ticket create/detail/PATCH responses issue a strong resource ETag. PATCH requires
+`If-Match`; the service compares it only after authorization and
+`select_for_update()` have locked the authoritative row. Missing preconditions
+return 428 and stale validators return 412.
+
+Every representation-changing ticket mutation increments `revision`, including
+attachment linking. Personal and tenant tickets use the same concurrency contract.
