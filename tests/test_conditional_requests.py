@@ -75,6 +75,7 @@ def test_etag_and_304_keep_metadata_and_current_request_id(authenticated_client)
     )
     assert response.status_code == 304
     assert response.content == b""
+    assert response["Content-Length"] == str(len(first.content))
     assert "Content-Type" not in response
     assert response["ETag"] == first["ETag"]
     assert response["Cache-Control"] == "private, no-cache, must-revalidate"
@@ -116,6 +117,7 @@ def test_head_is_bodyless_and_retains_get_validator(authenticated_client):
     response = authenticated_client.head("/api/v1/catalog/", HTTP_IF_NONE_MATCH=first["ETag"])
     assert response.status_code == 304
     assert response.content == b""
+    assert response["Content-Length"] == str(len(first.content))
 
 
 def test_matching_validator_never_bypasses_authentication(authenticated_client):

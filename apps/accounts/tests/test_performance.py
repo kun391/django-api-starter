@@ -29,7 +29,7 @@ def test_paginated_list_has_constant_query_budget(admin_client, django_assert_nu
 
 def test_filtered_second_page_remains_bounded(admin_client, django_assert_num_queries):
     User.objects.bulk_create([
-        User(username=f"filtered-{index:03d}", first_name="Match")
+        User(username=f"filtered-{index:03d}", email=f"filtered-{index:03d}@example.com", first_name="Match")
         for index in range(45)
     ])
     with django_assert_num_queries(2):

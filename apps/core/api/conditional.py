@@ -58,7 +58,11 @@ class ConditionalGetMixin(APIView):
             # Keep Phase 7 Problem Details rather than Django's empty 412 body.
             error = self.handle_exception(PreconditionFailed())
             return super().finalize_response(request, error, *args, **kwargs)
-        if request.method == "HEAD" and conditional.status_code == 200:
+        if conditional.status_code == 304:
+            # RFC 9110 section 8.6: this is the 200 representation length, not
+            # zero. Prevent CommonMiddleware from inferring it from the empty body.
+            conditional["Content-Length"] = str(len(response.content))
+        elif request.method == "HEAD" and conditional.status_code == 200:
             conditional["Content-Length"] = str(len(conditional.content))
             conditional.content = b""
         return conditional
