@@ -101,7 +101,7 @@ class OrganizationViewSet(viewsets.GenericViewSet):
             organization_id=pk,
             name=serializer.validated_data["name"],
         )
-        organization.actor_role = OrganizationMembership.Role.OWNER
+        organization.actor_role = "owner"
         return Response(OrganizationSerializer(organization).data)
 
 
