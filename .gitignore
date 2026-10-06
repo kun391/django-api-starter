@@ -132,6 +132,7 @@ Desktop.ini
 logs/
 staticfiles/
 media/
+private-files/
 *.dump
 *.sql
 backup_*.sql

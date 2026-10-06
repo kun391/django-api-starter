@@ -5,6 +5,7 @@ from pathlib import Path
 from corsheaders.defaults import default_headers
 from decouple import config  # type: ignore[import-untyped]
 
+from .file_storage import build_private_storage
 from .performance import build_performance_caches
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,6 +40,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "apps.core",
     "apps.accounts",
+    "apps.files",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -107,18 +109,10 @@ MAILERS = {
 }
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 LANGUAGE_CODE = "en-us"
@@ -129,18 +123,35 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
-
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
-
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+PRIVATE_FILE_MAX_BYTES = config("PRIVATE_FILE_MAX_BYTES", default=5 * 1024 * 1024, cast=int)
+PRIVATE_FILE_PENDING_SECONDS = config("PRIVATE_FILE_PENDING_SECONDS", default=3600, cast=int)
+PRIVATE_FILE_RECHECK_SECONDS = config("PRIVATE_FILE_RECHECK_SECONDS", default=3600, cast=int)
+PRIVATE_FILE_SIGNED_DOWNLOADS = config("PRIVATE_FILE_SIGNED_DOWNLOADS", default=False, cast=bool)
+PRIVATE_FILE_URL_TTL = config("PRIVATE_FILE_URL_TTL", default=60, cast=int)
+# Product-specific purposes/validators are server configuration, not API inputs.
+PRIVATE_FILE_POLICIES = {
+    "document": {
+        "max_bytes": PRIVATE_FILE_MAX_BYTES,
+        "validators": {
+            ".txt": "apps.files.validation.validate_text",
+            ".json": "apps.files.validation.validate_json",
+        },
+    },
+}
+PRIVATE_STORAGE = build_private_storage(BASE_DIR, MEDIA_ROOT, STATIC_ROOT)
+STORAGES = {
+    "default": PRIVATE_STORAGE,
+    "private": PRIVATE_STORAGE,
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+FILE_UPLOAD_HANDLERS = [
+    "apps.files.validation.PrivateUploadLimitHandler",
+    "django.core.files.uploadhandler.MemoryFileUploadHandler",
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
+]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -149,15 +160,12 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.TokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
-    ],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "EXCEPTION_HANDLER": "apps.core.api.errors.exception_handler",
     "DEFAULT_PAGINATION_CLASS": "apps.core.api.pagination.StandardPagination",
     "PAGE_SIZE": 20,
-    # Never trust X-Forwarded-For by default. Set this only when every request
-    # traverses exactly that many trusted proxies which sanitize the header.
+    # Never trust X-Forwarded-For unless the deployment sanitizes its proxy chain.
     "NUM_PROXIES": config("API_NUM_PROXIES", default=0, cast=int),
     "DEFAULT_FILTER_BACKENDS": [
         "apps.core.api.filtering.StrictDjangoFilterBackend",
@@ -180,6 +188,10 @@ SECURITY_THROTTLE_RATES = {
         "limit": config("AUTH_LOGIN_CREDENTIAL_RATE_LIMIT", default=10, cast=int),
         "window_seconds": config("AUTH_LOGIN_RATE_WINDOW_SECONDS", default=60, cast=int),
     },
+    "private_upload": {
+        "limit": config("PRIVATE_FILE_RATE_LIMIT", default=20, cast=int),
+        "window_seconds": 60,
+    },
 }
 
 CORS_ALLOWED_ORIGINS = config(
@@ -189,7 +201,7 @@ CORS_ALLOWED_ORIGINS = config(
 )
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = (*default_headers, "x-request-id", "idempotency-key", "if-none-match", "if-match")
-CORS_EXPOSE_HEADERS = ["X-Request-ID", "Idempotency-Replayed", "Retry-After", "ETag"]
+CORS_EXPOSE_HEADERS = ["X-Request-ID", "Idempotency-Replayed", "Retry-After", "ETag", "Content-Disposition"]
 
 CSRF_TRUSTED_ORIGINS = config(
     "CSRF_TRUSTED_ORIGINS",
@@ -206,20 +218,14 @@ OUTBOX_RETRY_BASE_SECONDS = config("OUTBOX_RETRY_BASE_SECONDS", default=5, cast=
 OUTBOX_RETRY_MAX_SECONDS = config("OUTBOX_RETRY_MAX_SECONDS", default=3600, cast=int)
 OUTBOX_MAX_EVENT_BYTES = config("OUTBOX_MAX_EVENT_BYTES", default=65536, cast=int)
 
-CELERY_BROKER_URL = config(
-    "RABBITMQ_URL",
-    default="amqp://admin:admin@rabbitmq:5672/",
-)
+CELERY_BROKER_URL = config("RABBITMQ_URL", default="amqp://admin:admin@rabbitmq:5672/")
 CELERY_RESULT_BACKEND = config("REDIS_URL", default="redis://redis:6379/0")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
-    "dispatch-transactional-outbox": {
-        "task": "core.dispatch_outbox",
-        "schedule": 5.0,
-    },
+    "dispatch-transactional-outbox": {"task": "core.dispatch_outbox", "schedule": 5.0},
 }
 
 SPECTACULAR_SETTINGS = {
@@ -237,24 +243,11 @@ SPECTACULAR_SETTINGS = {
 
 LOG_LEVEL = config("LOG_LEVEL", default="INFO")
 
-# Containers should emit logs to stdout/stderr. Log aggregation belongs to the
-# runtime platform rather than the application filesystem.
+# Containers emit JSON to stdout/stderr; aggregation belongs to the platform.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {
-        "json": {
-            "()": "apps.core.observability.JsonFormatter",
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "json",
-        },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": LOG_LEVEL,
-    },
+    "formatters": {"json": {"()": "apps.core.observability.JsonFormatter"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "json"}},
+    "root": {"handlers": ["console"], "level": LOG_LEVEL},
 }

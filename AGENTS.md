@@ -66,6 +66,15 @@ correctness-critical state. Authorize before cache access. Register scoped
 invalidation in the mutation's transaction. Keep accounts no-store. Add actual
 serialization/query-count tests; do not add speculative indexes or mandatory Redis.
 
+## Private files
+
+Read `docs/storage.md` before changing upload/download behavior. Use server-owned
+content policies and immutable object keys. Validate authorization on every access;
+never publish a media root or infer access from a UUID. Upload requires autocommit,
+not a nested DB/idempotency transaction. Reuse outbox cleanup; do not delete storage
+objects in save/delete signals. Signed URLs are bearer grants, not ongoing auth.
+Keep S3 optional and distinguish format validation from malware scanning.
+
 ## Agent context
 
 For module-scoped work, start with:

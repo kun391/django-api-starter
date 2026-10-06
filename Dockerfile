@@ -12,9 +12,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        curl \
-        libpq5 \
+    && apt-get install -y --no-install-recommends curl libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
 FROM python-base AS uv-base
@@ -30,6 +28,11 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --extra async --no-install-project
 
+FROM uv-base AS storage-deps
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --extra storage --no-install-project
+
 FROM uv-base AS dev-deps
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -44,7 +47,7 @@ FROM python-base AS runtime-base
 RUN groupadd --system django \
     && useradd --system --gid django --home-dir /app django
 COPY . /app
-RUN mkdir -p /app/staticfiles /app/media \
+RUN mkdir -p /app/staticfiles /app/media /app/private-files \
     && chown -R django:django /app
 USER django
 EXPOSE 8000
@@ -57,16 +60,18 @@ FROM runtime-base AS runtime-async
 COPY --from=async-deps --chown=django:django /app/.venv /app/.venv
 CMD ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
 
+FROM runtime-base AS runtime-storage
+COPY --from=storage-deps --chown=django:django /app/.venv /app/.venv
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "apps.core.wsgi:application"]
+
 FROM uv-base AS development-base
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        netcat-openbsd \
-        postgresql-client \
+    && apt-get install -y --no-install-recommends netcat-openbsd postgresql-client \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system django \
     && useradd --system --gid django --home-dir /app django
 COPY . /app
-RUN mkdir -p /app/staticfiles /app/media \
+RUN mkdir -p /app/staticfiles /app/media /app/private-files \
     && chown -R django:django /app
 USER django
 EXPOSE 8000

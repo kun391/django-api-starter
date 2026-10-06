@@ -12,6 +12,7 @@ services:
       - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+      - private_files_volume:/app/private-files
     depends_on:
       db:
         condition: service_healthy
@@ -72,6 +73,7 @@ services:
     command: ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
     volumes:
       - .:/app
+      - private_files_volume:/app/private-files
     depends_on:
       db:
         condition: service_healthy
@@ -106,6 +108,7 @@ volumes:
   rabbitmq_data:
   static_volume:
   media_volume:
+  private_files_volume:
 
 networks:
   django_network:
