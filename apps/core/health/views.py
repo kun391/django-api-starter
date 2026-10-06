@@ -3,7 +3,11 @@ from importlib.util import find_spec
 from django.db import connection
 from django.db.utils import DatabaseError
 from django.http import JsonResponse
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework.permissions import AllowAny
 
 
@@ -39,7 +43,7 @@ def live(request):
 @authentication_classes([])
 @permission_classes([AllowAny])
 def ready(request):
-    """A bounded DB connectivity probe; release_check verifies schema separately."""
+    """A DB connectivity probe; release_check verifies schema separately."""
     return _ready_response()
 
 

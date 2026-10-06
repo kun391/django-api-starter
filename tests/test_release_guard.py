@@ -4,7 +4,12 @@ from copy import deepcopy
 
 import pytest
 
-from scripts.verify_release import REQUIRED_JOBS, select_ci_run, validate_inputs, validate_jobs
+from scripts.verify_release import (
+    REQUIRED_JOBS,
+    select_ci_run,
+    validate_inputs,
+    validate_jobs,
+)
 
 SHA = "a" * 40
 REPO = "example/starter"

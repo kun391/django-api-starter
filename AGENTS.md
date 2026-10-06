@@ -75,6 +75,15 @@ not a nested DB/idempotency transaction. Reuse outbox cleanup; do not delete sto
 objects in save/delete signals. Signed URLs are bearer grants, not ongoing auth.
 Keep S3 optional and distinguish format validation from malware scanning.
 
+## Deployment and release
+
+Read `docs/deployment.md` before changing runtime, release or migration behavior.
+Never migrate on replica startup, trust unverified proxy headers, or put runtime
+secrets in builds/logs. Test actual production images, not only Django's test client.
+Promote approved digests; keep publishing and production deployment explicit.
+Use expand/migrate/contract and a reviewed rollback plan; no automatic destructive
+reverse migration or restore. Preserve minimal and optional runtime variants.
+
 ## Agent context
 
 For module-scoped work, start with:

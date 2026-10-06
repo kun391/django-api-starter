@@ -22,7 +22,7 @@ make dev
 make migrate
 ```
 
-The API is available at `http://localhost:5001`.
+The development API is available at `http://localhost:5001`.
 
 Create an admin user with:
 
@@ -54,11 +54,14 @@ Do not add `requirements*.txt` files.
 ### Optional runtime extras
 
 ```bash
-# Background jobs
+# Background jobs / Redis client
 uv sync --locked --extra async --group dev
 
 # Object storage integrations
 uv sync --locked --extra storage --group dev
+
+# Combined capabilities
+uv sync --locked --extra async --extra storage --group dev
 ```
 
 Available extras:
@@ -74,11 +77,7 @@ Default development stack:
 docker compose up -d
 ```
 
-This starts only:
-
-```text
-web + PostgreSQL
-```
+This starts only `web + PostgreSQL`.
 
 Enable asynchronous infrastructure only when needed:
 
@@ -86,30 +85,35 @@ Enable asynchronous infrastructure only when needed:
 docker compose --profile async up -d
 ```
 
-The `async` profile adds:
+The `async` profile adds Redis, RabbitMQ, Celery worker and Celery beat.
 
-```text
-Redis + RabbitMQ + Celery worker + Celery beat
-```
+## Production images and release
 
-## Production images
-
-The Dockerfile is multi-stage.
+Read [the Phase 12 deployment guide](docs/deployment.md). Production has a
+**standalone** `compose.production.yaml`; never combine it with development
+Compose. Staging uses the same security contract as production, with independent
+runtime secrets and services.
 
 ```bash
-# Minimal API image
 docker build --target runtime -t django-api-starter .
-
-# Image with Celery dependencies
 docker build --target runtime-async -t django-api-starter-async .
-
-# API / scheduled cleanup with optional S3 dependencies
 docker build --target runtime-storage -t django-api-starter-storage .
+docker build --target runtime-full -t django-api-starter-full .
+
+# Disposable PostgreSQL + real HTTP smoke for all four non-root images:
+bash scripts/smoke_production.sh
 ```
 
-The production targets do not include uv, compilers, Git, PostgreSQL CLI,
-netcat, debug toolbar, or test tooling. The async and storage targets have separate
-extras; S3-backed Celery workers need both, as described in the storage guide.
+Runtime images contain offline-collected static assets, default to production
+settings, and need explicit strong secrets/hosts and verified PostgreSQL TLS.
+They contain no uv, compiler, Git, PostgreSQL CLI, debug toolbar or test tooling.
+`runtime-full` supports S3-backed workers or an API combining S3 and Redis cache.
+
+Release steps are explicit: preflight, migration plan, serialized forward
+migration, then application admission. No migration runs on web/worker startup.
+`Publish release images` is a manual workflow gated on an exact merged main SHA
+and successful CI; it smoke-tests before GHCR push and records deployment digests.
+No PR automatically publishes packages or deploys to production.
 
 ## Architecture
 
@@ -132,11 +136,11 @@ Business modules live under `apps/` and use local documentation and metadata:
 
 ```text
 apps/<module>/
-├── module.yaml
-├── README.md
-├── api/
-├── tests/
-└── ... only the layers that module needs
+|-- module.yaml
+|-- README.md
+|-- api/
+|-- tests/
+`-- ... only the layers that module needs
 ```
 
 The current `accounts` module is the reference medium-complexity module.
@@ -181,7 +185,7 @@ throttles and idempotency do not depend on the cache.
 owner-only downloads, immutable replacement and outbox cleanup. The initial
 policy accepts bounded UTF-8 text and JSON, not arbitrary binaries or scanned
 malware-free documents. Signed URLs are off by default. **Default media storage
-is now private and the DEBUG `/media/` route is removed.**
+is private and the DEBUG `/media/` route is removed.**
 
 Run migrations and schedule both `reconcile_private_files` and `dispatch_outbox`.
 The optional local worker shares the private volume; S3 cleanup must use the same
@@ -202,8 +206,9 @@ uv run python scripts/check_architecture.py
 uv run pytest
 ```
 
-CI builds all three production targets and runs real Redis and S3-compatible
-integration in separate jobs. The minimal PostgreSQL job needs neither service.
+CI runs the minimal PostgreSQL full suite, real Redis and S3-compatible integration,
+and production-container smoke in separate jobs. The minimal job needs neither
+Redis nor S3. The container job builds and exercises all four runtime variants.
 
 ## Useful Make targets
 
@@ -212,16 +217,13 @@ make up
 make down
 make logs
 make shell
-
 make test
 make coverage
 make check
 make format
-
 make migrate
 make makemigrations
 make dbshell
-
 make architecture
 make module name=products type=crud
 make ai-context name=accounts
@@ -231,30 +233,29 @@ make ai-context name=accounts
 
 ```text
 .
-├── AGENTS.md
-├── ARCHITECTURE.md
-├── apps/
-│   ├── accounts/
-│   ├── core/
-│   └── files/
-├── config/
-├── settings/
-├── scripts/
-├── tests/
-├── bin/
-├── compose.yaml
-├── Dockerfile
-├── env.example
-├── Makefile
-├── pyproject.toml
-└── uv.lock
+|-- AGENTS.md
+|-- ARCHITECTURE.md
+|-- apps/                  # accounts, core, files
+|-- config/
+|-- deploy/                # production env and single-edge proxy examples
+|-- settings/
+|-- scripts/               # module tooling, release gates, production smoke
+|-- tests/
+|-- bin/
+|-- compose.yaml           # development only
+|-- compose.production.yaml
+|-- Dockerfile
+|-- env.example            # development only
+|-- Makefile
+|-- pyproject.toml
+`-- uv.lock
 ```
 
 ## Configuration
 
-Copy `env.example` to `.env` for local development. Production must provide
-its own secret key, allowed hosts, database credentials, and any enabled
-integration credentials.
+Copy `env.example` to `.env` for local development. Production uses the private
+runtime configuration described in `deploy/production.env.example` and the
+deployment guide; do not reuse development secrets, databases or upload volumes.
 
 Sentry is opt-in through `SENTRY_DSN`. PII sending is disabled by default.
 

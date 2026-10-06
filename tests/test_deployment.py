@@ -68,6 +68,7 @@ def test_unsafe_production_settings_fail_closed(overrides):
     assert "ImproperlyConfigured" in result.stderr
 
 
+@pytest.mark.django_db
 def test_probes_ignore_credentials_and_do_not_cache(api_client, django_assert_num_queries):
     with django_assert_num_queries(0):
         response = api_client.get("/health/live/", HTTP_AUTHORIZATION="Token bad")
