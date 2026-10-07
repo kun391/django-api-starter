@@ -19,7 +19,7 @@ from apps.organizations.access import require_roles, resolve_access
 
 from .models import WebhookDelivery, WebhookSubscription
 from .security import validate_webhook_url
-from .signing import derive_signing_secret, signing_headers
+from .signing import signing_headers
 from .topics import SUPPORTED_WEBHOOK_TOPICS
 from .transport import WebhookTransportError, send_webhook
 
@@ -71,10 +71,7 @@ def create_subscription(*, actor, organization_id, url: str, events):
             organization_id=access.organization.pk,
             metadata={"events": selected},
         )
-    return (
-        cast(WebhookSubscription, subscription),
-        derive_signing_secret(subscription.pk, subscription.secret_version),
-    )
+    return cast(WebhookSubscription, subscription)
 
 
 def update_subscription(*, actor, organization_id, subscription_id, changes):
@@ -153,10 +150,7 @@ def rotate_secret(*, actor, organization_id, subscription_id):
             organization_id=access.organization.pk,
             metadata={"secret_version": subscription.secret_version},
         )
-    return (
-        cast(WebhookSubscription, subscription),
-        derive_signing_secret(subscription.pk, subscription.secret_version),
-    )
+    return cast(WebhookSubscription, subscription)
 
 
 def _delivery_body(delivery_id, envelope: dict[str, Any], *, replay_of=None):
