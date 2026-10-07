@@ -14,7 +14,6 @@ from apps.notifications.services import (
     process_delivery_batch,
     set_preference,
 )
-from apps.organizations.models import Organization
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -272,16 +271,12 @@ def test_outbox_fans_out_without_sending_email(user):
 
 
 def test_unknown_or_recipientless_event_is_ignored(user):
-    organization = Organization.objects.create(
-        name="No Recipient",
-        slug=f"no-recipient-{uuid.uuid4().hex[:8]}",
-    )
     assert (
         fanout_event(
             envelope(
                 topic="organizations.organization-updated",
                 payload={
-                    "organization_id": str(organization.pk),
+                    "organization_id": str(uuid.uuid4()),
                     "changed_fields": ["name"],
                 },
             )
