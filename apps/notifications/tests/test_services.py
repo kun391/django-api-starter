@@ -21,7 +21,7 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 class RecordingProvider:
     def __init__(self):
-        self.messages = []
+        self.messages: list[dict[str, str]] = []
 
     def send_email(self, *, subject, body, recipient):
         self.messages.append(
