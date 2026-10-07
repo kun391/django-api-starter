@@ -14,17 +14,20 @@ from .serializers import (
 )
 
 
-class NoStoreMixin:
-    def finalize_response(self, request, response, *args, **kwargs):
-        response = super().finalize_response(request, response, *args, **kwargs)
-        response["Cache-Control"] = "no-store"
-        return response
+def _mark_no_store(response):
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @extend_schema(tags=["notifications"])
-class NotificationPreferenceListView(NoStoreMixin, generics.GenericAPIView):
+class NotificationPreferenceListView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = NotificationPreferenceSerializer
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        return _mark_no_store(
+            super().finalize_response(request, response, *args, **kwargs)
+        )
 
     @extend_schema(
         responses={200: NotificationPreferenceSerializer(many=True)},
@@ -35,9 +38,14 @@ class NotificationPreferenceListView(NoStoreMixin, generics.GenericAPIView):
 
 
 @extend_schema(tags=["notifications"])
-class NotificationPreferenceDetailView(NoStoreMixin, generics.GenericAPIView):
+class NotificationPreferenceDetailView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = NotificationPreferenceUpdateSerializer
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        return _mark_no_store(
+            super().finalize_response(request, response, *args, **kwargs)
+        )
 
     @extend_schema(
         request=NotificationPreferenceUpdateSerializer,
@@ -66,12 +74,17 @@ class NotificationPreferenceDetailView(NoStoreMixin, generics.GenericAPIView):
 
 
 @extend_schema(tags=["notifications"])
-class NotificationDeliveryListView(NoStoreMixin, generics.ListAPIView):
+class NotificationDeliveryListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = NotificationDeliverySerializer
     filterset_class = NotificationDeliveryFilter
     ordering_fields = ["id", "created_at", "attempts", "delivered_at", "failed_at"]
     ordering = ["-created_at", "-id"]
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        return _mark_no_store(
+            super().finalize_response(request, response, *args, **kwargs)
+        )
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
