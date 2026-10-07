@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from apps.core.models import IdempotencyRecord, OutboxEvent
+from apps.core.models import AuditEvent, IdempotencyRecord, OutboxEvent
 from apps.organizations.models import Organization, OrganizationMembership
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -39,6 +39,10 @@ def test_create_is_idempotent_and_creator_is_owner(authenticated_client, user):
     assert OutboxEvent.objects.filter(
         topic="organizations.organization-created",
     ).count() == 1
+    audit = AuditEvent.objects.get(action="organizations.organization-created")
+    assert audit.actor_id == user.pk
+    assert str(audit.organization_id) == first.json()["id"]
+    assert audit.request_id == first["X-Request-ID"]
 
 
 def test_non_member_and_django_staff_do_not_bypass_tenant(
@@ -181,3 +185,82 @@ def test_second_owner_allows_first_owner_to_leave(authenticated_client, user):
         user=second,
         role="owner",
     ).exists()
+
+
+
+def test_tenant_audit_history_is_owner_admin_only(authenticated_client, user):
+    created = create_org(
+        authenticated_client,
+        key="audit-org-create",
+        name="Audit Org",
+        slug="audit-org",
+    )
+    organization_id = created.json()["id"]
+    User = get_user_model()
+    admin = User.objects.create_user(
+        username="audit-admin",
+        email="audit-admin@example.com",
+        password="pass",
+    )
+    member = User.objects.create_user(
+        username="audit-member",
+        email="audit-member@example.com",
+        password="pass",
+    )
+    outsider = User.objects.create_user(
+        username="audit-outsider",
+        email="audit-outsider@example.com",
+        password="pass",
+    )
+    members_url = reverse("organization-member-list", args=[organization_id])
+    assert authenticated_client.post(
+        members_url,
+        {"user_id": admin.pk, "role": "admin"},
+        format="json",
+    ).status_code == 201
+    assert authenticated_client.post(
+        members_url,
+        {"user_id": member.pk, "role": "member"},
+        format="json",
+    ).status_code == 201
+
+    audit_url = reverse("organization-audit-event-list", args=[organization_id])
+    response = authenticated_client.get(audit_url)
+    assert response.status_code == 200
+    assert response["Cache-Control"] == "no-store"
+    assert response.json()["count"] == 3
+    assert {
+        row["action"] for row in response.json()["results"]
+    } == {
+        "organizations.organization-created",
+        "organizations.membership-added",
+    }
+
+    filtered = authenticated_client.get(
+        audit_url,
+        {"action": "organizations.membership-added"},
+    )
+    assert filtered.status_code == 200
+    assert filtered.json()["count"] == 2
+
+    assert client_for(admin).get(audit_url).status_code == 200
+    assert client_for(member).get(audit_url).status_code == 403
+    assert client_for(outsider).get(audit_url).status_code == 404
+    assert client_for(outsider).get(
+        audit_url,
+        HTTP_X_TENANT_ID=organization_id,
+        HTTP_X_ROLE="owner",
+    ).status_code == 404
+
+
+def test_audit_history_uses_strict_query_contract(authenticated_client):
+    created = create_org(
+        authenticated_client,
+        key="audit-query-org",
+        name="Query Org",
+        slug="query-org",
+    )
+    url = reverse("organization-audit-event-list", args=[created.json()["id"]])
+    response = authenticated_client.get(f"{url}?unknown=1")
+    assert response.status_code == 400
+    assert response.json()["code"] == "validation_error"
