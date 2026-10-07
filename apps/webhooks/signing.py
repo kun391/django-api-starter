@@ -8,6 +8,8 @@ from django.core.exceptions import ImproperlyConfigured
 
 def derive_signing_secret(subscription_id, secret_version: int) -> str:
     master = getattr(settings, "WEBHOOK_SIGNING_MASTER_KEY", "")
+    if not master and settings.DEBUG:
+        master = settings.SECRET_KEY
     if not isinstance(master, str) or len(master) < 32:
         raise ImproperlyConfigured(
             "WEBHOOK_SIGNING_MASTER_KEY must contain at least 32 characters."
