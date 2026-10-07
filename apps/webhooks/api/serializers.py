@@ -58,13 +58,8 @@ class WebhookSubscriptionUpdateSerializer(serializers.Serializer):
         return attrs
 
 
-class WebhookSubscriptionCreatedSerializer(WebhookSubscriptionSerializer):
-    signing_secret = serializers.CharField(read_only=True)
-
-
-class WebhookSecretSerializer(serializers.Serializer):
+class WebhookRotationSerializer(serializers.Serializer):
     secret_version = serializers.IntegerField(read_only=True)
-    signing_secret = serializers.CharField(read_only=True)
 
 
 class WebhookDeliverySerializer(serializers.ModelSerializer):
