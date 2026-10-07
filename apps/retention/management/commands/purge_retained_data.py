@@ -1,5 +1,6 @@
 import json
 
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.retention.services import CATEGORY_BY_NAME, purge_retained_data
@@ -31,12 +32,8 @@ class Command(BaseCommand):
                 batch_size=options["batch_size"],
                 confirm=options["confirm"],
             )
-        except (ValueError, Exception) as exc:
-            from django.core.exceptions import ImproperlyConfigured
-
-            if isinstance(exc, (ValueError, ImproperlyConfigured)):
-                raise CommandError(str(exc)) from exc
-            raise
+        except (ValueError, ImproperlyConfigured) as exc:
+            raise CommandError(str(exc)) from exc
 
         payload = {
             "mode": "delete" if options["confirm"] else "dry-run",
