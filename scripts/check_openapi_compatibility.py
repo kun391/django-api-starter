@@ -78,6 +78,8 @@ def _compare_schema(
     base_schema: Any,
     candidate_schema: Any,
     location: str,
+    *,
+    direction: str = "input",
 ) -> list[str]:
     base_schema = _resolve(base_doc, base_schema)
     candidate_schema = _resolve(candidate_doc, candidate_schema)
@@ -105,8 +107,12 @@ def _compare_schema(
             findings.append(f"{location}: response/request property removed: {name}")
         base_required = set(base_schema.get("required", []))
         candidate_required = set(candidate_schema.get("required", []))
-        for name in sorted(candidate_required - base_required):
-            findings.append(f"{location}: property became required: {name}")
+        if direction == "input":
+            for name in sorted(candidate_required - base_required):
+                findings.append(f"{location}: property became required: {name}")
+        else:
+            for name in sorted(base_required - candidate_required):
+                findings.append(f"{location}: required response property became optional: {name}")
         for name in sorted(set(base_props) & set(candidate_props)):
             findings.extend(
                 _compare_schema(
@@ -115,6 +121,7 @@ def _compare_schema(
                     base_props[name],
                     candidate_props[name],
                     f"{location}.{name}",
+                    direction=direction,
                 )
             )
 
@@ -126,6 +133,7 @@ def _compare_schema(
                 base_schema["items"],
                 candidate_schema["items"],
                 f"{location}[]",
+                direction=direction,
             )
         )
     return findings
@@ -215,6 +223,7 @@ def compare(base: dict[str, Any], candidate: dict[str, Any]) -> list[str]:
                                     before_schema,
                                     after_schema,
                                     f"{where} response {status}",
+                                    direction="output",
                                 )
                             )
     return findings
