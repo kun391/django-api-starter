@@ -3,6 +3,7 @@
 from celery import shared_task
 
 from apps.core.outbox import process_outbox_batch
+from apps.operations.logging import log_batch_completed
 
 
 @shared_task(
@@ -18,4 +19,6 @@ def dispatch_outbox() -> int:
     fail the scheduler task itself.
     """
 
-    return process_outbox_batch()
+    processed = process_outbox_batch()
+    log_batch_completed(queue="outbox", processed_count=processed)
+    return processed
