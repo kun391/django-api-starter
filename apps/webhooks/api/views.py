@@ -1,3 +1,5 @@
+from typing import Any
+
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.response import Response
@@ -18,6 +20,8 @@ from .serializers import (
 
 class OrganizationWebhookAccessMixin:
     permission_classes = [permissions.IsAuthenticated]
+    request: Any
+    kwargs: dict[str, Any]
 
     def _access(self):
         access = resolve_access(
