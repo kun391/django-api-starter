@@ -13,11 +13,13 @@ public_api:
   - POST /api/v1/organizations/{id}/members/
   - PATCH /api/v1/organizations/{id}/members/{user_id}/
   - DELETE /api/v1/organizations/{id}/members/{user_id}/
+  - GET /api/v1/organizations/{id}/audit-events/
 depends_on: []
 uses:
   - django.auth
   - core.idempotency
   - core.outbox
+  - core.audit
 emits:
   - organizations.organization-created
   - organizations.organization-updated
@@ -31,3 +33,5 @@ rules:
   - Django staff status does not bypass organization membership
   - owner manages membership roles; admin may inspect membership; member may not
   - an organization must retain at least one owner
+  - successful organization and membership mutations append durable audit history
+  - only tenant owner/admin may read organization audit history
