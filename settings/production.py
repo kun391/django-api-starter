@@ -13,6 +13,12 @@ SECRET_KEY = config("SECRET_KEY", default="")
 if len(SECRET_KEY) < 50 or len(set(SECRET_KEY)) < 5 or SECRET_KEY.startswith("django-insecure-"):
     raise ImproperlyConfigured("Production SECRET_KEY must be a strong, independently generated secret of at least 50 characters.")
 
+WEBHOOK_SIGNING_MASTER_KEY = config("WEBHOOK_SIGNING_MASTER_KEY", default="")
+if len(WEBHOOK_SIGNING_MASTER_KEY) < 32:
+    raise ImproperlyConfigured(
+        "Production WEBHOOK_SIGNING_MASTER_KEY must be set separately and contain at least 32 characters."
+    )
+
 ALLOWED_HOSTS = config(
     "ALLOWED_HOSTS", default="",
     cast=lambda value: [item.strip() for item in value.split(",") if item.strip()],

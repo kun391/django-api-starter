@@ -39,6 +39,7 @@ from pathlib import Path
 Path(sys.argv[1]).write_text('\n'.join([
     'DJANGO_SETTINGS_MODULE=settings.production',
     'SECRET_KEY=' + secrets.token_urlsafe(64),
+    'WEBHOOK_SIGNING_MASTER_KEY=' + secrets.token_urlsafe(48),
     'ALLOWED_HOSTS=api.example.test',
     'POSTGRES_HOST=db', 'POSTGRES_DB=smoke', 'POSTGRES_USER=smoke',
     'POSTGRES_PASSWORD=' + secrets.token_urlsafe(32), 'POSTGRES_SSLMODE=disable',

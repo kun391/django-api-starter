@@ -62,6 +62,7 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: settings.production
           SECRET_KEY: ci-only-0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ-abcdefghijklmnopqrstuvwxyz
+          WEBHOOK_SIGNING_MASTER_KEY: ci-webhook-${{ github.sha }}
           ALLOWED_HOSTS: example.com
         run: uv run python manage.py check --deploy
       - name: Dependency audit
