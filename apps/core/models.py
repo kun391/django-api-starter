@@ -51,3 +51,34 @@ class OutboxEvent(models.Model):
                 name="core_outbox_ready_idx",
             ),
         ]
+
+
+class AuditEvent(models.Model):
+    """Append-only application audit history for successful business mutations."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    action = models.CharField(max_length=120)
+    subject_type = models.CharField(max_length=80)
+    subject_id = models.CharField(max_length=128)
+    actor_id = models.BigIntegerField(null=True, blank=True)
+    organization_id = models.UUIDField(null=True, blank=True)
+    request_id = models.CharField(max_length=128, blank=True)
+    metadata = models.JSONField(default=dict)
+    occurred_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-occurred_at", "-id"]
+        indexes = [
+            models.Index(
+                fields=["organization_id", "-occurred_at"],
+                name="core_audit_org_time_idx",
+            ),
+            models.Index(
+                fields=["subject_type", "subject_id", "-occurred_at"],
+                name="core_audit_subject_idx",
+            ),
+            models.Index(
+                fields=["actor_id", "-occurred_at"],
+                name="core_audit_actor_idx",
+            ),
+        ]

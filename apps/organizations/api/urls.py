@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import SimpleRouter
 
 from .views import (
+    OrganizationAuditEventListView,
     OrganizationMemberDetailView,
     OrganizationMembersView,
     OrganizationViewSet,
@@ -12,6 +13,11 @@ router.register("organizations", OrganizationViewSet, basename="organization")
 
 urlpatterns = [
     *router.urls,
+    path(
+        "organizations/<uuid:organization_id>/audit-events/",
+        OrganizationAuditEventListView.as_view(),
+        name="organization-audit-event-list",
+    ),
     path(
         "organizations/<uuid:organization_id>/members/",
         OrganizationMembersView.as_view(),

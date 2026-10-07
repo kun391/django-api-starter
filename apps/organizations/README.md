@@ -14,3 +14,14 @@ Organization creation is idempotent: organization, creator membership and outbox
 event commit atomically. Invitations, SSO/domain discovery, arbitrary permission
 strings, billing tenancy and database row-level security are intentionally out of
 scope.
+
+
+## Phase 16 audit history
+
+Successful organization and membership mutations append a durable audit row in
+the same transaction as the business write and outbox event.
+
+Owners and admins can read the tenant-scoped history at
+`GET /api/v1/organizations/{organization_id}/audit-events/`. Members cannot
+read it, and Django staff/superuser status does not bypass organization
+membership.

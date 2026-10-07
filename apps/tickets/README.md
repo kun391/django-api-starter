@@ -61,3 +61,12 @@ return 428 and stale validators return 412.
 
 Every representation-changing ticket mutation increments `revision`, including
 attachment linking. Personal and tenant tickets use the same concurrency contract.
+
+
+## Phase 16 durable audit
+
+Ticket create, update and attachment-link mutations append a bounded audit event
+inside the same transaction as the authoritative write and outbox event. Tenant
+ticket audit rows carry the organization UUID and are visible through the
+organization audit endpoint. Personal-ticket audit rows remain durable but are
+not exposed through a new global API in this phase.

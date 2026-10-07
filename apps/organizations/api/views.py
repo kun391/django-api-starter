@@ -3,8 +3,10 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, permissions, serializers, status, viewsets
 from rest_framework.response import Response
 
+from apps.core.api.audit import AuditEventFilter, AuditEventSerializer
 from apps.core.api.idempotency import idempotent_post
 from apps.core.api.schema import IDEMPOTENCY_KEY_PARAMETER
+from apps.core.models import AuditEvent
 from apps.organizations import services
 from apps.organizations.access import require_roles, resolve_access
 from apps.organizations.models import Organization, OrganizationMembership
@@ -225,3 +227,34 @@ class OrganizationMemberDetailView(generics.GenericAPIView):
         except services.MembershipConflict as exc:
             raise serializers.ValidationError(str(exc)) from exc
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+@extend_schema(tags=["organization-audit"])
+class OrganizationAuditEventListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = AuditEventSerializer
+    filterset_class = AuditEventFilter
+    ordering_fields = ["id", "occurred_at", "action", "subject_type", "actor_id"]
+    ordering = ["-occurred_at", "-id"]
+
+    def _access(self):
+        access = resolve_access(
+            actor=self.request.user,
+            organization_id=self.kwargs["organization_id"],
+        )
+        require_roles(access, "owner", "admin")
+        return access
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return AuditEvent.objects.none()
+        access = self._access()
+        return AuditEvent.objects.filter(
+            organization_id=access.organization.pk,
+        )
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response["Cache-Control"] = "no-store"
+        return response
