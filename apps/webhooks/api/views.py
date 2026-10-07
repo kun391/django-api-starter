@@ -9,6 +9,7 @@ from apps.webhooks.models import WebhookDelivery, WebhookSubscription
 from .filters import WebhookDeliveryFilter, WebhookSubscriptionFilter
 from .serializers import (
     WebhookDeliverySerializer,
+    WebhookRotationSerializer,
     WebhookSubscriptionCreateSerializer,
     WebhookSubscriptionSerializer,
     WebhookSubscriptionUpdateSerializer,
@@ -127,10 +128,9 @@ class WebhookRotateSecretView(
     OrganizationWebhookAccessMixin,
     generics.GenericAPIView,
 ):
-    @extend_schema(
-        request=None,
-        responses={200: {"type": "object", "properties": {"secret_version": {"type": "integer"}}}},
-    )
+    serializer_class = WebhookRotationSerializer
+
+    @extend_schema(request=None, responses={200: WebhookRotationSerializer})
     def post(self, request, organization_id, subscription_id):
         subscription = services.rotate_secret(
             actor=request.user,
