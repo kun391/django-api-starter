@@ -8,10 +8,10 @@ class QueueStateSerializer(serializers.Serializer):
     active_leases = serializers.IntegerField()
     stale_leases = serializers.IntegerField()
     oldest_pending_age_seconds = serializers.IntegerField(allow_null=True)
-    status = serializers.ChoiceField(choices=["ok", "warning", "critical"])
+    status = serializers.CharField()
 
 
 class OperationsSnapshotSerializer(serializers.Serializer):
-    status = serializers.ChoiceField(choices=["ok", "warning", "critical"])
+    status = serializers.CharField()
     generated_at = serializers.DateTimeField()
     queues = serializers.DictField(child=QueueStateSerializer())
