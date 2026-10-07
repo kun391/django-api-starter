@@ -1,0 +1,33 @@
+name: notifications
+type: integration
+owns:
+  - user notification preferences
+  - email notification queue and delivery history
+  - notification retry policy
+  - notification email templates
+public_api:
+  - GET /api/v1/notifications/preferences/
+  - PUT /api/v1/notifications/preferences/{topic}/
+  - GET /api/v1/notifications/deliveries/
+depends_on:
+  - accounts
+uses:
+  - core.outbox
+  - core.audit
+  - Django MAILERS
+emits: []
+consumes:
+  - organizations.organization-created
+  - organizations.membership-added
+  - organizations.membership-updated
+  - organizations.membership-removed
+  - tickets.ticket-created
+  - tickets.ticket-updated
+  - tickets.attachment-added
+rules:
+  - notification creation is idempotent per source event, recipient and channel
+  - external email delivery never runs inside the business request transaction
+  - user preferences are checked at fan-out and again immediately before delivery
+  - delivery rows snapshot template context and the delivery address
+  - delivery failures use bounded retry and terminal failure state
+  - email backend exceptions never escape the notification worker state machine
