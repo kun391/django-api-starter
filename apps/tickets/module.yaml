@@ -26,6 +26,7 @@ uses:
   - core.caching
   - core.api-contract
   - core.optimistic-concurrency
+  - core.audit
 emits:
   - tickets.ticket-created
   - tickets.ticket-updated
@@ -41,3 +42,4 @@ rules:
   - ticket creation is idempotent and tenant idempotency scopes include server-resolved organization ID
   - PATCH requires the latest strong If-Match validator checked under the authoritative row lock
   - every representation-changing ticket mutation advances the resource revision
+  - successful ticket mutations append bounded audit metadata in the same transaction
