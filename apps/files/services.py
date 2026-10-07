@@ -204,9 +204,15 @@ def delete_stored_object(file_id):
     backend.delete(record.object_key)  # Idempotent; errors are retried by core outbox.
     # A crash before this update is safe: the next delivery deletes the same key.
     recheck = positive_setting("PRIVATE_FILE_RECHECK_SECONDS", 86400)
+    now = timezone.now()
     PrivateFile.objects.filter(pk=record.pk, state__in=["deleting", "deleted"]).update(
-        state=PrivateFile.State.DELETED, original_name="", media_type="", sha256="", size=0,
-        cleanup_after=timezone.now() + timedelta(seconds=recheck),
+        state=PrivateFile.State.DELETED,
+        original_name="",
+        media_type="",
+        sha256="",
+        size=0,
+        deleted_at=record.deleted_at or now,
+        cleanup_after=now + timedelta(seconds=recheck),
     )
 
 
