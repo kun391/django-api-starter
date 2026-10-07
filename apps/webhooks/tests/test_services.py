@@ -1,7 +1,7 @@
 import json
 import uuid
-from typing import Any
 from datetime import timedelta
+from typing import Any
 
 import pytest
 from django.db import transaction
