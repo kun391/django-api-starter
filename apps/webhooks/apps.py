@@ -15,12 +15,11 @@ class WebhooksConfig(AppConfig):
             original = outbox._HANDLERS.get(topic)
             if original is None:
                 continue
-            if getattr(original, "_webhook_fanout_wrapped", False):
+            if getattr(original, "__module__", "") == __name__:
                 continue
 
             def combined(envelope, *, original_handler=original):
                 original_handler(envelope)
                 fanout_event(envelope)
 
-            combined._webhook_fanout_wrapped = True
             outbox._HANDLERS[topic] = combined
