@@ -217,6 +217,15 @@ inspects changed Django migrations for rolling-deployment hazards. Deliberate
 breaking releases require the reviewed `compatibility-approved` PR label; findings
 remain visible even when the override is used.
 
+## Compatibility gates (Phase 17)
+
+[Phase 17 guide](docs/compatibility.md) makes API and database compatibility an
+explicit PR gate. CI compares generated OpenAPI against the pull request's exact
+base commit and inspects changed Django migrations for destructive, narrowing or
+lock-prone operations. Additive changes pass by default; intentionally breaking
+releases require the visible `compatibility-break-approved` PR label plus a
+reviewed rollout/client migration plan.
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:
