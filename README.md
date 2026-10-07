@@ -239,6 +239,18 @@ Email delivery uses Django 6.1 `MAILERS`; no provider call runs inside a request
 or business transaction. See
 [apps/notifications/README.md](apps/notifications/README.md).
 
+## Operations and observability (Phase 20)
+
+The `operations` integration module exposes staff-only aggregate health for the
+transactional outbox, outbound webhook queue and notification queue. It reports
+due backlog, retry state, terminal failures, active/stale leases and oldest due
+age without exposing payloads, recipients, URLs or secrets.
+
+API readiness remains PostgreSQL-only; async degradation is monitored separately.
+Background Celery tasks emit low-cardinality structured completion events through
+the existing JSON logger. See
+[apps/operations/README.md](apps/operations/README.md).
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:
