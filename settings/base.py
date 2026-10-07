@@ -44,7 +44,6 @@ LOCAL_APPS = [
     "apps.organizations",
     "apps.tickets",
     "apps.webhooks",
-    "apps.webhooks",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -221,26 +220,6 @@ OUTBOX_MAX_ATTEMPTS = config("OUTBOX_MAX_ATTEMPTS", default=10, cast=int)
 OUTBOX_RETRY_BASE_SECONDS = config("OUTBOX_RETRY_BASE_SECONDS", default=5, cast=int)
 OUTBOX_RETRY_MAX_SECONDS = config("OUTBOX_RETRY_MAX_SECONDS", default=3600, cast=int)
 OUTBOX_MAX_EVENT_BYTES = config("OUTBOX_MAX_EVENT_BYTES", default=65536, cast=int)
-
-WEBHOOK_SIGNING_MASTER_KEY = config("WEBHOOK_SIGNING_MASTER_KEY", default="")
-WEBHOOK_BATCH_SIZE = config("WEBHOOK_BATCH_SIZE", default=100, cast=int)
-WEBHOOK_LEASE_SECONDS = config("WEBHOOK_LEASE_SECONDS", default=60, cast=int)
-WEBHOOK_MAX_ATTEMPTS = config("WEBHOOK_MAX_ATTEMPTS", default=8, cast=int)
-WEBHOOK_RETRY_BASE_SECONDS = config("WEBHOOK_RETRY_BASE_SECONDS", default=30, cast=int)
-WEBHOOK_RETRY_MAX_SECONDS = config("WEBHOOK_RETRY_MAX_SECONDS", default=3600, cast=int)
-WEBHOOK_HTTP_TIMEOUT_SECONDS = config("WEBHOOK_HTTP_TIMEOUT_SECONDS", default=5, cast=int)
-WEBHOOK_ALLOWED_PORTS = config(
-    "WEBHOOK_ALLOWED_PORTS",
-    default="443",
-    cast=lambda value: tuple(
-        int(item.strip()) for item in value.split(",") if item.strip()
-    ),
-)
-WEBHOOK_ALLOW_PRIVATE_ENDPOINTS = config(
-    "WEBHOOK_ALLOW_PRIVATE_ENDPOINTS",
-    default=False,
-    cast=bool,
-)
 
 WEBHOOK_SIGNING_MASTER_KEY = config("WEBHOOK_SIGNING_MASTER_KEY", default="")
 WEBHOOK_BATCH_SIZE = config("WEBHOOK_BATCH_SIZE", default=100, cast=int)
