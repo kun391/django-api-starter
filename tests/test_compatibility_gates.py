@@ -60,6 +60,20 @@ def test_openapi_removed_operation_and_response_field_fail():
     assert "operation removed: POST /api/v1/items/" in compare(base, removed)
 
 
+def test_openapi_required_response_becoming_optional_fails():
+    base = document(operation())
+    candidate = document(operation())
+    response = candidate["paths"]["/api/v1/items/"]["post"]["responses"]["200"][
+        "content"
+    ]["application/json"]["schema"]
+    response["required"] = ["id"]
+    findings = compare(base, candidate)
+    assert any(
+        "required response property became optional: name" in finding
+        for finding in findings
+    )
+
+
 def test_openapi_new_required_input_and_narrowed_enum_fail():
     base = document(operation())
     candidate = document(operation(request_required=["name"]))
