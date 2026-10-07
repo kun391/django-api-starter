@@ -209,6 +209,14 @@ recorded transactionally with mutations. Tenant audit history is read-only,
 strictly scoped by organization membership, and intentionally separate from
 security logs and the transactional outbox.
 
+## Compatibility gates (Phase 17)
+
+[Phase 17 guide](docs/compatibility.md) adds pull-request gates for backwards
+compatibility. CI compares generated OpenAPI against the exact base revision and
+inspects changed Django migrations for rolling-deployment hazards. Deliberate
+breaking releases require the reviewed `compatibility-approved` PR label; findings
+remain visible even when the override is used.
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:

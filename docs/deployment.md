@@ -209,6 +209,19 @@ zero-downtime rolling deployment**. For that use multiple instances and explicit
 load-balancer readiness/draining. Match stop_grace_period to Gunicorn graceful
 shutdown settings and coordinate worker/scheduler rollout separately.
 
+## Compatibility gate before release
+
+Pull requests run the Phase 17 API/database compatibility gate before merge.
+OpenAPI is generated independently from the PR and its exact base SHA. Changed
+migration files are inspected for destructive/rename/required-add and lock-sensitive
+operations.
+
+A PR carrying the `compatibility-approved` label still prints all findings but
+may proceed after explicit review. Treat that label as deployment evidence: the
+PR must explain mixed-version behavior, migration/backfill ordering, lock/runtime
+risk, rollback boundary and affected consumers. The label is not a substitute
+for backups, restore rehearsal or expand/migrate/contract.
+
 ## Schema evolution and rollback
 
 Use expand/migrate/contract when old and new code can coexist:

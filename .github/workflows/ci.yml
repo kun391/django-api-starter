@@ -39,6 +39,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -72,6 +74,27 @@ jobs:
         run: uv run python scripts/check_architecture.py
       - name: API schema validation
         run: uv run python manage.py spectacular --file /tmp/schema.yaml --validate --fail-on-warn
+      - name: Compatibility gates
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          COMPATIBILITY_APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'compatibility-approved') }}
+        run: |
+          set -euo pipefail
+          git worktree add --detach /tmp/compat-base "$BASE_SHA"
+          (
+            cd /tmp/compat-base
+            uv run --locked --group dev python manage.py spectacular \
+              --file /tmp/base-schema.yaml --validate --fail-on-warn
+          )
+          args=()
+          if [ "$COMPATIBILITY_APPROVED" = "true" ]; then
+            args+=(--allow-breaking)
+          fi
+          uv run python scripts/check_openapi_compatibility.py \
+            /tmp/base-schema.yaml /tmp/schema.yaml "${args[@]}"
+          uv run python scripts/check_migration_safety.py \
+            --base "$BASE_SHA" "${args[@]}"
       - name: Tests
         run: uv run pytest
       - name: Compose config
