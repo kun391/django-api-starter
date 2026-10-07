@@ -2,6 +2,7 @@ from typing import cast
 
 from django.db import IntegrityError, transaction
 
+from apps.core.audit import record_audit_event
 from apps.core.outbox import record_outbox_event
 
 from .access import require_roles, resolve_access
@@ -32,6 +33,14 @@ def create_organization(*, actor, name: str, slug: str) -> Organization:
                     "owner_user_id": actor.pk,
                 },
             )
+            record_audit_event(
+                action="organizations.organization-created",
+                subject_type="organization",
+                subject_id=organization.pk,
+                actor_id=actor.pk,
+                organization_id=organization.pk,
+                metadata={"role": "owner"},
+            )
     except IntegrityError as exc:
         raise OrganizationSlugConflict() from exc
     return cast(Organization, organization)
@@ -53,6 +62,14 @@ def rename_organization(*, actor, organization_id, name: str) -> Organization:
                     "organization_id": str(organization.pk),
                     "changed_fields": ["name"],
                 },
+            )
+            record_audit_event(
+                action="organizations.organization-updated",
+                subject_type="organization",
+                subject_id=organization.pk,
+                actor_id=actor.pk,
+                organization_id=organization.pk,
+                metadata={"changed_fields": ["name"]},
             )
         return cast(Organization, organization)
 
@@ -77,6 +94,14 @@ def add_member(*, actor, organization_id, user, role: str) -> OrganizationMember
                 "user_id": user.pk,
                 "role": role,
             },
+        )
+        record_audit_event(
+            action="organizations.membership-added",
+            subject_type="organization",
+            subject_id=organization_id,
+            actor_id=actor.pk,
+            organization_id=organization_id,
+            metadata={"target_user_id": user.pk, "role": role},
         )
         return cast(OrganizationMembership, membership)
 
@@ -125,6 +150,18 @@ def change_member_role(*, actor, organization_id, user_id: int, role: str):
                 "role": role,
             },
         )
+        record_audit_event(
+            action="organizations.membership-updated",
+            subject_type="organization",
+            subject_id=organization_id,
+            actor_id=actor.pk,
+            organization_id=organization_id,
+            metadata={
+                "target_user_id": user_id,
+                "previous_role": previous_role,
+                "role": role,
+            },
+        )
         return membership
 
 
@@ -145,8 +182,17 @@ def remove_member(*, actor, organization_id, user_id: int) -> None:
             and owner_ids == [membership.pk]
         ):
             raise MembershipConflict("An organization must retain at least one owner.")
+        previous_role = membership.role
         membership.delete()
         record_outbox_event(
             topic="organizations.membership-removed",
             payload={"organization_id": str(organization_id), "user_id": user_id},
+        )
+        record_audit_event(
+            action="organizations.membership-removed",
+            subject_type="organization",
+            subject_id=organization_id,
+            actor_id=actor.pk,
+            organization_id=organization_id,
+            metadata={"target_user_id": user_id, "previous_role": previous_role},
         )
