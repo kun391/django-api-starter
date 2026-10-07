@@ -1,5 +1,19 @@
 name: webhooks
 type: integration
+owns:
+  - tenant webhook subscriptions
+  - signing-key versioning
+  - outbound delivery queue and history
+  - retry and replay policy
+public_api:
+  - GET /api/v1/organizations/{organization_id}/webhooks/
+  - POST /api/v1/organizations/{organization_id}/webhooks/
+  - GET /api/v1/organizations/{organization_id}/webhooks/{id}/
+  - PATCH /api/v1/organizations/{organization_id}/webhooks/{id}/
+  - DELETE /api/v1/organizations/{organization_id}/webhooks/{id}/
+  - POST /api/v1/organizations/{organization_id}/webhooks/{id}/rotate-secret/
+  - GET /api/v1/organizations/{organization_id}/webhook-deliveries/
+  - POST /api/v1/organizations/{organization_id}/webhook-deliveries/{id}/replay/
 depends_on:
   - organizations
 uses:
@@ -18,8 +32,7 @@ consumes:
   - tickets.attachment-added
 rules:
   - only organization owner/admin may manage subscriptions and delivery history
-  - signing secrets are derived and never persisted in plaintext
-  - secrets are returned only on subscription creation and explicit rotation
+  - signing material is derived and never persisted in plaintext or returned by API
   - outbound delivery never runs inside the request/business transaction
   - endpoints require HTTPS and pass DNS/IP SSRF checks on every attempt
   - personal/non-tenant events are not delivered
