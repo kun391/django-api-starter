@@ -1,7 +1,8 @@
 from celery import shared_task
 
-from .services import process_delivery_batch
 from apps.core.observability import log_batch_completed
+
+from .services import process_delivery_batch
 
 
 @shared_task(
