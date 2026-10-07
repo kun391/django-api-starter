@@ -28,6 +28,7 @@ TEST_SECRET = "ci-only-0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ-abcdefghijklmnopqrs
 def load_settings(module="settings.production", **overrides):
     environment = {
         **os.environ, "DJANGO_SETTINGS_MODULE": module, "SECRET_KEY": TEST_SECRET,
+        "WEBHOOK_SIGNING_MASTER_KEY": TEST_SECRET,
         "ALLOWED_HOSTS": "api.example.test", "TRUST_PROXY_SSL_HEADER": "False",
         "PRIVATE_FILE_BACKEND": "filesystem", "SENTRY_DSN": "",
         "POSTGRES_SSLMODE": "verify-full", "POSTGRES_SSLROOTCERT": "",
@@ -61,7 +62,7 @@ def test_proxy_trust_requires_explicit_opt_in():
     {"SECRET_KEY": ""}, {"SECRET_KEY": "weak"}, {"SECRET_KEY": "a" * 60},
     {"SECRET_KEY": "django-insecure-" + TEST_SECRET}, {"ALLOWED_HOSTS": ""},
     {"ALLOWED_HOSTS": "*"}, {"ALLOWED_HOSTS": "https://api.example.test"},
-    {"POSTGRES_SSLMODE": "typo"},
+    {"POSTGRES_SSLMODE": "typo"}, {"WEBHOOK_SIGNING_MASTER_KEY": ""},
 ])
 def test_unsafe_production_settings_fail_closed(overrides):
     result = load_settings(**overrides)
