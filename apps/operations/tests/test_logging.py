@@ -14,6 +14,7 @@ def test_json_formatter_includes_low_cardinality_operational_fields(caplog):
     logger.handlers = [handler]
     logger.propagate = False
 
+    payload = {}
     try:
         with caplog.at_level(logging.INFO, logger="operations.background"):
             record = logging.LogRecord(
@@ -25,9 +26,9 @@ def test_json_formatter_includes_low_cardinality_operational_fields(caplog):
                 (),
                 None,
             )
-            record.operation = "background.batch.completed"
-            record.queue_name = "notifications"
-            record.processed_count = 3
+            record.__dict__["operation"] = "background.batch.completed"
+            record.__dict__["queue_name"] = "notifications"
+            record.__dict__["processed_count"] = 3
             payload = json.loads(formatter.format(record))
     finally:
         logger.handlers = old_handlers
@@ -44,6 +45,6 @@ def test_log_batch_completed_emits_structured_extra(caplog):
 
     record = caplog.records[-1]
     assert record.getMessage() == "background.batch.completed"
-    assert record.operation == "background.batch.completed"
-    assert record.queue_name == "outbox"
-    assert record.processed_count == 2
+    assert getattr(record, "operation") == "background.batch.completed"
+    assert getattr(record, "queue_name") == "outbox"
+    assert getattr(record, "processed_count") == 2
