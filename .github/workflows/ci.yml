@@ -84,14 +84,17 @@ jobs:
           git worktree add --detach /tmp/compat-base "$BASE_SHA"
           (
             cd /tmp/compat-base
-            "$GITHUB_WORKSPACE/.venv/bin/python" manage.py spectacular               --file /tmp/base-schema.yaml --validate --fail-on-warn
+            uv run --locked --group dev python manage.py spectacular \
+              --file /tmp/base-schema.yaml --validate --fail-on-warn
           )
           args=()
           if [ "$COMPATIBILITY_APPROVED" = "true" ]; then
             args+=(--allow-breaking)
           fi
-          uv run python scripts/check_openapi_compatibility.py             /tmp/base-schema.yaml /tmp/schema.yaml "${args[@]}"
-          uv run python scripts/check_migration_safety.py             --base "$BASE_SHA" "${args[@]}"
+          uv run python scripts/check_openapi_compatibility.py \
+            /tmp/base-schema.yaml /tmp/schema.yaml "${args[@]}"
+          uv run python scripts/check_migration_safety.py \
+            --base "$BASE_SHA" "${args[@]}"
       - name: Tests
         run: uv run pytest
       - name: Compose config
