@@ -23,7 +23,10 @@ class DjangoMailerEmailProvider:
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[recipient],
         )
-        sent = message.send(using=settings.NOTIFICATION_MAILER_ALIAS)
+        try:
+            sent = message.send(using=settings.NOTIFICATION_MAILER_ALIAS)
+        except Exception as exc:
+            raise NotificationProviderError(type(exc).__name__) from exc
         if sent != 1:
             raise NotificationProviderError("email_not_sent")
 
