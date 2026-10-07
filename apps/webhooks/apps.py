@@ -6,4 +6,21 @@ class WebhooksConfig(AppConfig):
     name = "apps.webhooks"
 
     def ready(self):
-        from . import handlers  # noqa: F401
+        from apps.core import outbox
+
+        from .services import fanout_event
+        from .topics import SUPPORTED_WEBHOOK_TOPICS
+
+        for topic in SUPPORTED_WEBHOOK_TOPICS:
+            original = outbox._HANDLERS.get(topic)
+            if original is None:
+                continue
+            if getattr(original, "_webhook_fanout_wrapped", False):
+                continue
+
+            def combined(envelope, *, original_handler=original):
+                original_handler(envelope)
+                fanout_event(envelope)
+
+            combined._webhook_fanout_wrapped = True
+            outbox._HANDLERS[topic] = combined
