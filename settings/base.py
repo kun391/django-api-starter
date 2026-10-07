@@ -44,6 +44,7 @@ LOCAL_APPS = [
     "apps.organizations",
     "apps.tickets",
     "apps.webhooks",
+    "apps.notifications",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -97,6 +98,8 @@ DATABASES = {
 
 # Dedicated opt-in data cache; never used by security throttles or idempotency.
 CACHES = build_performance_caches()
+
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="webmaster@localhost")
 
 MAILERS = {
     "default": {
@@ -241,6 +244,21 @@ WEBHOOK_ALLOW_PRIVATE_ENDPOINTS = config(
     cast=bool,
 )
 
+NOTIFICATION_EMAIL_PROVIDER = config(
+    "NOTIFICATION_EMAIL_PROVIDER",
+    default="apps.notifications.provider.DjangoMailerEmailProvider",
+)
+NOTIFICATION_MAILER_ALIAS = config("NOTIFICATION_MAILER_ALIAS", default="default")
+NOTIFICATION_BATCH_SIZE = config("NOTIFICATION_BATCH_SIZE", default=100, cast=int)
+NOTIFICATION_LEASE_SECONDS = config("NOTIFICATION_LEASE_SECONDS", default=60, cast=int)
+NOTIFICATION_MAX_ATTEMPTS = config("NOTIFICATION_MAX_ATTEMPTS", default=8, cast=int)
+NOTIFICATION_RETRY_BASE_SECONDS = config(
+    "NOTIFICATION_RETRY_BASE_SECONDS", default=30, cast=int
+)
+NOTIFICATION_RETRY_MAX_SECONDS = config(
+    "NOTIFICATION_RETRY_MAX_SECONDS", default=3600, cast=int
+)
+
 CELERY_BROKER_URL = config("RABBITMQ_URL", default="amqp://admin:admin@rabbitmq:5672/")
 CELERY_RESULT_BACKEND = config("REDIS_URL", default="redis://redis:6379/0")
 CELERY_ACCEPT_CONTENT = ["json"]
@@ -251,6 +269,10 @@ CELERY_BEAT_SCHEDULE = {
     "dispatch-transactional-outbox": {"task": "core.dispatch_outbox", "schedule": 5.0},
     "dispatch-outbound-webhooks": {
         "task": "webhooks.dispatch_webhooks",
+        "schedule": 5.0,
+    },
+    "dispatch-notifications": {
+        "task": "notifications.dispatch_notifications",
         "schedule": 5.0,
     },
 }
