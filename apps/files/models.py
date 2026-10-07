@@ -26,6 +26,7 @@ class PrivateFile(models.Model):
     state = models.CharField(max_length=10, choices=State.choices, default=State.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     cleanup_after = models.DateTimeField(null=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         indexes = [models.Index(fields=["state", "cleanup_after"], name="files_cleanup_idx")]
