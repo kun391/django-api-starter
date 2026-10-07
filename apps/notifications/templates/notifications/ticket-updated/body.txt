@@ -1,0 +1,5 @@
+Ticket {{ ticket_id }} was updated.
+Status: {{ status }}
+Revision: {{ revision }}
+
+Event: {{ event_id }}

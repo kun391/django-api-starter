@@ -1,0 +1,3 @@
+Ticket {{ ticket_id }} was created with priority {{ priority }}.
+
+Event: {{ event_id }}

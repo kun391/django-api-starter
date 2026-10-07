@@ -1,0 +1,4 @@
+An attachment was added to ticket {{ ticket_id }}.
+Revision: {{ revision }}
+
+Event: {{ event_id }}
