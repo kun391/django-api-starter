@@ -9,9 +9,7 @@ from apps.webhooks.models import WebhookDelivery, WebhookSubscription
 from .filters import WebhookDeliveryFilter, WebhookSubscriptionFilter
 from .serializers import (
     WebhookDeliverySerializer,
-    WebhookSecretSerializer,
     WebhookSubscriptionCreateSerializer,
-    WebhookSubscriptionCreatedSerializer,
     WebhookSubscriptionSerializer,
     WebhookSubscriptionUpdateSerializer,
 )
@@ -61,19 +59,20 @@ class WebhookSubscriptionListCreateView(
 
     @extend_schema(
         request=WebhookSubscriptionCreateSerializer,
-        responses={201: WebhookSubscriptionCreatedSerializer},
+        responses={201: WebhookSubscriptionSerializer},
     )
     def post(self, request, organization_id):
         serializer = WebhookSubscriptionCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        subscription, secret = services.create_subscription(
+        subscription = services.create_subscription(
             actor=request.user,
             organization_id=organization_id,
             **serializer.validated_data,
         )
-        body = WebhookSubscriptionSerializer(subscription).data
-        body["signing_secret"] = secret
-        return Response(body, status=status.HTTP_201_CREATED)
+        return Response(
+            WebhookSubscriptionSerializer(subscription).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 @extend_schema(tags=["organization-webhooks"])
@@ -128,21 +127,17 @@ class WebhookRotateSecretView(
     OrganizationWebhookAccessMixin,
     generics.GenericAPIView,
 ):
-    serializer_class = WebhookSecretSerializer
-
-    @extend_schema(request=None, responses={200: WebhookSecretSerializer})
+    @extend_schema(
+        request=None,
+        responses={200: {"type": "object", "properties": {"secret_version": {"type": "integer"}}}},
+    )
     def post(self, request, organization_id, subscription_id):
-        subscription, secret = services.rotate_secret(
+        subscription = services.rotate_secret(
             actor=request.user,
             organization_id=organization_id,
             subscription_id=subscription_id,
         )
-        return Response(
-            {
-                "secret_version": subscription.secret_version,
-                "signing_secret": secret,
-            }
-        )
+        return Response({"secret_version": subscription.secret_version})
 
 
 @extend_schema(tags=["organization-webhooks"])
