@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, cast
 
 from django.conf import settings
 from django.core.mail import EmailMessage
@@ -33,4 +33,4 @@ class DjangoMailerEmailProvider:
 
 def get_email_provider() -> EmailProvider:
     provider_class = import_string(settings.NOTIFICATION_EMAIL_PROVIDER)
-    return provider_class()
+    return cast(EmailProvider, provider_class())
