@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Count, Min, Q
 from django.utils import timezone
 
@@ -37,9 +38,27 @@ def _age_seconds(value: datetime | None, now: datetime) -> int | None:
     return max(0, int((now - value).total_seconds()))
 
 
+def _thresholds() -> tuple[int, int]:
+    warning_age = getattr(settings, "OPERATIONS_QUEUE_WARNING_AGE_SECONDS", 300)
+    critical_age = getattr(settings, "OPERATIONS_QUEUE_CRITICAL_AGE_SECONDS", 900)
+    if (
+        isinstance(warning_age, bool)
+        or not isinstance(warning_age, int)
+        or warning_age <= 0
+        or isinstance(critical_age, bool)
+        or not isinstance(critical_age, int)
+        or critical_age <= 0
+        or critical_age < warning_age
+    ):
+        raise ImproperlyConfigured(
+            "Operations queue thresholds must be positive integers and "
+            "critical must be greater than or equal to warning."
+        )
+    return warning_age, critical_age
+
+
 def _status(*, age: int | None, terminal_failures: int) -> str:
-    critical_age = int(getattr(settings, "OPERATIONS_QUEUE_CRITICAL_AGE_SECONDS", 900))
-    warning_age = int(getattr(settings, "OPERATIONS_QUEUE_WARNING_AGE_SECONDS", 300))
+    warning_age, critical_age = _thresholds()
     if terminal_failures > 0 or (age is not None and age >= critical_age):
         return "critical"
     if age is not None and age >= warning_age:
@@ -51,6 +70,7 @@ def _outbox_state(now: datetime) -> QueueState:
     ready = Q(
         published_at__isnull=True,
         dead_lettered_at__isnull=True,
+        available_at__lte=now,
     )
     values: dict[str, Any] = OutboxEvent.objects.aggregate(
         pending=Count("id", filter=ready),
@@ -81,6 +101,7 @@ def _delivery_state(model, now: datetime) -> QueueState:
         delivered_at__isnull=True,
         failed_at__isnull=True,
         cancelled_at__isnull=True,
+        next_attempt_at__lte=now,
     )
     values: dict[str, Any] = model.objects.aggregate(
         pending=Count("id", filter=ready),
