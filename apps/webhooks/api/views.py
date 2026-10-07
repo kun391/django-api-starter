@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions, serializers, status
@@ -32,7 +32,10 @@ class OrganizationWebhookAccessMixin:
         return access
 
     def finalize_response(self, request, response, *args, **kwargs):
-        response = super().finalize_response(request, response, *args, **kwargs)
+        view = cast(generics.GenericAPIView, self)
+        response = generics.GenericAPIView.finalize_response(
+            view, request, response, *args, **kwargs
+        )
         response["Cache-Control"] = "no-store"
         return response
 
