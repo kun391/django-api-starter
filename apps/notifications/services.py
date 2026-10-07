@@ -15,7 +15,7 @@ from django.utils import timezone
 from apps.core.audit import record_audit_event
 
 from .models import NotificationDelivery, NotificationPreference
-from .provider import EmailProvider, NotificationProviderError, get_email_provider
+from .provider import EmailProvider, get_email_provider
 from .rendering import render_notification
 from .topics import NOTIFICATION_TOPICS, SUPPORTED_NOTIFICATION_TOPICS
 
@@ -284,7 +284,7 @@ def process_delivery_batch(
                 body=rendered.body,
                 recipient=delivery.recipient_email,
             )
-        except (NotificationProviderError, OSError, ValueError) as exc:
+        except Exception as exc:
             _finish_failure(claim, exc)
             continue
 
