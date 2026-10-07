@@ -228,6 +228,17 @@ Delivery is HMAC-signed, retryable and SSRF-hardened. Signing material is derive
 from a separate production master key and is never persisted in plaintext or
 returned by the HTTP API. See [apps/webhooks/README.md](apps/webhooks/README.md).
 
+## Notification foundation (Phase 19)
+
+The `notifications` integration module consumes explicit-recipient domain events
+from the transactional outbox and fans them into a separate durable email queue.
+It adds per-user topic preferences, template rendering, provider abstraction,
+leased retry/dead-letter delivery and self-service delivery history.
+
+Email delivery uses Django 6.1 `MAILERS`; no provider call runs inside a request
+or business transaction. See
+[apps/notifications/README.md](apps/notifications/README.md).
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:
