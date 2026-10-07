@@ -1,5 +1,7 @@
 from celery import shared_task
 
+from apps.core.observability import log_batch_completed
+
 from .services import process_delivery_batch
 
 
@@ -10,4 +12,6 @@ from .services import process_delivery_batch
     reject_on_worker_lost=True,
 )
 def dispatch_webhooks() -> int:
-    return process_delivery_batch()
+    processed = process_delivery_batch()
+    log_batch_completed(queue="webhooks", processed_count=processed)
+    return processed

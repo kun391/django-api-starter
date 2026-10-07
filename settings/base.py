@@ -45,6 +45,7 @@ LOCAL_APPS = [
     "apps.tickets",
     "apps.webhooks",
     "apps.notifications",
+    "apps.operations",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -257,6 +258,13 @@ NOTIFICATION_RETRY_BASE_SECONDS = config(
 )
 NOTIFICATION_RETRY_MAX_SECONDS = config(
     "NOTIFICATION_RETRY_MAX_SECONDS", default=3600, cast=int
+)
+
+OPERATIONS_QUEUE_WARNING_AGE_SECONDS = config(
+    "OPERATIONS_QUEUE_WARNING_AGE_SECONDS", default=300, cast=int
+)
+OPERATIONS_QUEUE_CRITICAL_AGE_SECONDS = config(
+    "OPERATIONS_QUEUE_CRITICAL_AGE_SECONDS", default=900, cast=int
 )
 
 CELERY_BROKER_URL = config("RABBITMQ_URL", default="amqp://admin:admin@rabbitmq:5672/")

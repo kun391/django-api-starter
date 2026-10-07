@@ -20,6 +20,24 @@ _SECURITY_LOG_FIELDS = (
     "subject_id",
     "throttle_scope",
 )
+_OPERATIONAL_LOG_FIELDS = (
+    "operation",
+    "queue_name",
+    "processed_count",
+)
+
+_operational_logger = logging.getLogger("operations.background")
+
+
+def log_batch_completed(*, queue: str, processed_count: int) -> None:
+    _operational_logger.info(
+        "background.batch.completed",
+        extra={
+            "operation": "background.batch.completed",
+            "queue_name": queue,
+            "processed_count": processed_count,
+        },
+    )
 
 
 def get_request_id() -> str | None:
@@ -73,7 +91,7 @@ class JsonFormatter(logging.Formatter):
         if status_code is not None:
             payload["status_code"] = status_code
 
-        for field in _SECURITY_LOG_FIELDS:
+        for field in (*_SECURITY_LOG_FIELDS, *_OPERATIONAL_LOG_FIELDS):
             value = getattr(record, field, None)
             if value is not None:
                 payload[field] = value
