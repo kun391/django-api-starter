@@ -1,0 +1,20 @@
+name: operations
+type: integration
+owns:
+  - operational queue snapshots
+  - operator-facing queue health classification
+public_api:
+  - GET /api/v1/operations/queues/
+depends_on:
+  - core
+  - webhooks
+  - notifications
+uses:
+  - PostgreSQL queue state
+emits: []
+consumes: []
+rules:
+  - operational endpoints require Django staff authentication
+  - snapshots never include payloads, recipient addresses, URLs, secrets or event bodies
+  - API readiness remains PostgreSQL-only and is not overloaded with async queue health
+  - queue thresholds classify operations status but do not mutate delivery state
