@@ -15,6 +15,8 @@ class WebhookSubscriptionFilter(filters.FilterSet):
 
 
 class WebhookDeliveryFilter(filters.FilterSet):
+    subscription_id = filters.UUIDFilter(field_name="subscription_id")
+
     class Meta:
         model = WebhookDelivery
-        fields = ["subscription_id", "source_event_id", "event_topic"]
+        fields = ["source_event_id", "event_topic"]
