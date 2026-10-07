@@ -45,6 +45,6 @@ def test_log_batch_completed_emits_structured_extra(caplog):
 
     record = caplog.records[-1]
     assert record.getMessage() == "background.batch.completed"
-    assert getattr(record, "operation") == "background.batch.completed"
-    assert getattr(record, "queue_name") == "outbox"
-    assert getattr(record, "processed_count") == 2
+    assert record.__dict__["operation"] == "background.batch.completed"
+    assert record.__dict__["queue_name"] == "outbox"
+    assert record.__dict__["processed_count"] == 2
