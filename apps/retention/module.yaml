@@ -1,0 +1,24 @@
+name: retention
+type: integration
+owns:
+  - bounded retention policy execution
+  - terminal history cleanup orchestration
+public_api: []
+depends_on:
+  - files
+  - tickets
+  - webhooks
+  - notifications
+uses:
+  - core.idempotency
+  - core.security-throttling
+  - core.outbox
+  - core.audit
+emits: []
+consumes: []
+rules:
+  - destructive cleanup requires the explicit --confirm operator flag
+  - configurable history retention is disabled when its setting is zero
+  - pending retrying and actively leased work is never purged
+  - audit retention is disabled by default and must follow legal/product policy
+  - private-file manifests are purgeable only after verified deletion and when not referenced by a ticket
