@@ -202,6 +202,13 @@ runtime/worker deployment conventions.
 
 See [apps/tickets/README.md](apps/tickets/README.md) for the API flow and invariants.
 
+## Durable audit trail (Phase 16)
+
+[Phase 16 guide](docs/audit-trail.md) adds append-only business change history
+recorded transactionally with mutations. Tenant audit history is read-only,
+strictly scoped by organization membership, and intentionally separate from
+security logs and the transactional outbox.
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:
