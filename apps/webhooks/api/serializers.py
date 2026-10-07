@@ -1,3 +1,5 @@
+"""Outbound webhook API serializers."""
+
 from rest_framework import serializers
 
 from apps.webhooks.models import WebhookDelivery, WebhookSubscription
