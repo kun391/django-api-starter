@@ -5,7 +5,7 @@ from django.test import override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from apps.core.models import IdempotencyRecord, OutboxEvent
+from apps.core.models import AuditEvent, IdempotencyRecord, OutboxEvent
 from apps.core.outbox import process_outbox_batch
 from apps.files import services as file_services
 from apps.tickets.models import Ticket, TicketAttachment
@@ -41,6 +41,7 @@ def test_create_replay_is_idempotent_and_outbox_is_atomic(authenticated_client):
     assert second["Idempotency-Replayed"] == "true"
     assert Ticket.objects.count() == 1
     assert IdempotencyRecord.objects.count() == 1
+    assert AuditEvent.objects.filter(action="tickets.ticket-created").count() == 1
     event = OutboxEvent.objects.get(topic="tickets.ticket-created")
     assert event.payload["ticket_id"] == first.json()["id"]
     assert process_outbox_batch() == 1
@@ -432,6 +433,15 @@ def test_ticket_patch_requires_if_match_and_rejects_stale_validator(
     ticket = Ticket.objects.get(pk=ticket_id)
     assert ticket.title == "First writer"
     assert ticket.revision == 2
+    audits = AuditEvent.objects.filter(
+        subject_type="ticket",
+        subject_id=str(ticket_id),
+    )
+    assert audits.count() == 2
+    assert set(audits.values_list("action", flat=True)) == {
+        "tickets.ticket-created",
+        "tickets.ticket-updated",
+    }
 
 
 def test_weak_validator_is_not_accepted_for_ticket_write(authenticated_client):
@@ -541,3 +551,37 @@ def test_tenant_ticket_patch_uses_same_write_precondition(user):
         HTTP_IF_MATCH=etag,
     )
     assert stale.status_code == 412
+
+
+
+def test_tenant_ticket_events_are_visible_in_tenant_audit_history(user):
+    organization = _organization(user, role="admin")
+    client = APIClient()
+    client.force_authenticate(user)
+    created = client.post(
+        _organization_ticket_list(organization),
+        _ticket_payload(),
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="tenant-audit-ticket",
+        HTTP_X_REQUEST_ID="tenant-audit-create",
+    )
+    assert created.status_code == 201
+
+    audit_url = reverse(
+        "organization-audit-event-list",
+        args=[organization.pk],
+    )
+    response = client.get(
+        audit_url,
+        {"subject_type": "ticket", "subject_id": created.json()["id"]},
+    )
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+    event = response.json()["results"][0]
+    assert event["action"] == "tickets.ticket-created"
+    assert event["actor_id"] == user.pk
+    assert event["request_id"] == "tenant-audit-create"
+    assert event["metadata"] == {
+        "priority": "high",
+        "revision": 1,
+    }
