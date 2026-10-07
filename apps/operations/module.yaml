@@ -6,7 +6,6 @@ owns:
 public_api:
   - GET /api/v1/operations/queues/
 depends_on:
-  - core
   - webhooks
   - notifications
 uses:
