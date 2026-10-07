@@ -87,7 +87,7 @@ class WebhookDeliverySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_status(self, obj):
+    def get_status(self, obj) -> str:
         if obj.delivered_at:
             return "delivered"
         if obj.failed_at:
