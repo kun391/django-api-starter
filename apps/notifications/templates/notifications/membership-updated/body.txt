@@ -1,0 +1,3 @@
+Your role in organization {{ organization_id }} changed from {{ previous_role }} to {{ role }}.
+
+Event: {{ event_id }}
