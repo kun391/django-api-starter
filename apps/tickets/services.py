@@ -3,6 +3,7 @@ from django.db import transaction
 from django.http import Http404
 
 from apps.core.api.concurrency import require_if_match, resource_etag
+from apps.core.audit import record_audit_event
 from apps.core.caching import invalidate_on_commit
 from apps.core.outbox import record_outbox_event
 from apps.files import services as file_services
@@ -75,6 +76,13 @@ def create_ticket(*, actor, title, description="", priority=Ticket.Priority.NORM
                 "revision": ticket.revision,
             },
         )
+        record_audit_event(
+            action="tickets.ticket-created",
+            subject_type="ticket",
+            subject_id=ticket.pk,
+            actor_id=actor.pk,
+            metadata={"priority": ticket.priority, "revision": ticket.revision},
+        )
         _invalidate_personal_summary(owner_id=ticket.owner_id)
     return ticket
 
@@ -105,6 +113,14 @@ def create_organization_ticket(
                 "priority": ticket.priority,
                 "revision": ticket.revision,
             },
+        )
+        record_audit_event(
+            action="tickets.ticket-created",
+            subject_type="ticket",
+            subject_id=ticket.pk,
+            actor_id=actor.pk,
+            organization_id=access.organization.pk,
+            metadata={"priority": ticket.priority, "revision": ticket.revision},
         )
         _invalidate_organization_summary(
             organization_id=access.organization.pk,
@@ -142,6 +158,17 @@ def update_ticket(*, actor, ticket_id, changes, if_match):
                     "ticket_id": str(ticket.pk),
                     "owner_id": ticket.owner_id,
                     "organization_id": None,
+                    "changed_fields": sorted(changed_fields),
+                    "status": ticket.status,
+                    "revision": ticket.revision,
+                },
+            )
+            record_audit_event(
+                action="tickets.ticket-updated",
+                subject_type="ticket",
+                subject_id=ticket.pk,
+                actor_id=actor.pk,
+                metadata={
                     "changed_fields": sorted(changed_fields),
                     "status": ticket.status,
                     "revision": ticket.revision,
@@ -197,6 +224,18 @@ def update_organization_ticket(
                     "revision": ticket.revision,
                 },
             )
+            record_audit_event(
+                action="tickets.ticket-updated",
+                subject_type="ticket",
+                subject_id=ticket.pk,
+                actor_id=actor.pk,
+                organization_id=access.organization.pk,
+                metadata={
+                    "changed_fields": sorted(changed_fields),
+                    "status": ticket.status,
+                    "revision": ticket.revision,
+                },
+            )
             _invalidate_organization_summary(
                 organization_id=access.organization.pk,
             )
@@ -219,6 +258,13 @@ def attach_file(*, actor, ticket_id, file_id):
                 "file_id": str(record.pk),
                 "revision": ticket.revision,
             },
+        )
+        record_audit_event(
+            action="tickets.attachment-added",
+            subject_type="ticket",
+            subject_id=ticket.pk,
+            actor_id=actor.pk,
+            metadata={"revision": ticket.revision},
         )
         _invalidate_personal_summary(owner_id=ticket.owner_id)
     return attachment
@@ -250,6 +296,14 @@ def attach_organization_file(
                 "file_id": str(record.pk),
                 "revision": ticket.revision,
             },
+        )
+        record_audit_event(
+            action="tickets.attachment-added",
+            subject_type="ticket",
+            subject_id=ticket.pk,
+            actor_id=actor.pk,
+            organization_id=access.organization.pk,
+            metadata={"revision": ticket.revision},
         )
         _invalidate_organization_summary(
             organization_id=access.organization.pk,
