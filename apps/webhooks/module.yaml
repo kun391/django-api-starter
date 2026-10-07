@@ -1,0 +1,26 @@
+name: webhooks
+type: integration
+depends_on:
+  - organizations
+uses:
+  - core.outbox
+  - core.audit
+  - HTTPS/TLS
+emits: []
+consumes:
+  - organizations.organization-created
+  - organizations.organization-updated
+  - organizations.membership-added
+  - organizations.membership-updated
+  - organizations.membership-removed
+  - tickets.ticket-created
+  - tickets.ticket-updated
+  - tickets.attachment-added
+rules:
+  - only organization owner/admin may manage subscriptions and delivery history
+  - signing secrets are derived and never persisted in plaintext
+  - secrets are returned only on subscription creation and explicit rotation
+  - outbound delivery never runs inside the request/business transaction
+  - endpoints require HTTPS and pass DNS/IP SSRF checks on every attempt
+  - personal/non-tenant events are not delivered
+  - response bodies are never persisted
