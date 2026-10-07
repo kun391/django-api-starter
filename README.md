@@ -217,6 +217,17 @@ inspects changed Django migrations for rolling-deployment hazards. Deliberate
 breaking releases require the reviewed `compatibility-approved` PR label; findings
 remain visible even when the override is used.
 
+## Outbound webhooks (Phase 18)
+
+The `webhooks` integration module consumes reviewed transactional-outbox events
+and fans them into a separate durable delivery queue. Tenant owner/admin can
+manage HTTPS subscriptions, inspect delivery history, rotate signing-key versions
+and replay terminal deliveries.
+
+Delivery is HMAC-signed, retryable and SSRF-hardened. Signing material is derived
+from a separate production master key and is never persisted in plaintext or
+returned by the HTTP API. See [apps/webhooks/README.md](apps/webhooks/README.md).
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:
