@@ -1,5 +1,6 @@
 import json
 import uuid
+from typing import Any
 from datetime import timedelta
 
 import pytest
@@ -78,7 +79,7 @@ def test_delivery_success_signs_exact_body(user):
     fanout_event(envelope(organization))
     delivery = WebhookDelivery.objects.get()
 
-    captured = {}
+    captured: dict[str, Any] = {}
 
     def transport(url, body, headers):
         captured.update(url=url, body=body, headers=headers)
