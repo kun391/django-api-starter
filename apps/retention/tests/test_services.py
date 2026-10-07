@@ -2,6 +2,7 @@ from datetime import timedelta
 import uuid
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.test import override_settings
 from django.utils import timezone
@@ -197,7 +198,7 @@ def test_private_file_tombstone_retention(user):
 
 @override_settings(RETENTION_AUDIT_SECONDS=-1)
 def test_invalid_retention_setting_fails_closed():
-    with pytest.raises(Exception, match="non-negative integer"):
+    with pytest.raises(ImproperlyConfigured, match="non-negative integer"):
         retention_plan(category="audit_events")
 
 
