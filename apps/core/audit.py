@@ -6,6 +6,7 @@ as the mutation. Metadata is server-defined and intentionally bounded.
 
 import json
 import re
+from typing import cast
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import connection
@@ -25,7 +26,7 @@ def record_audit_event(
     subject_id,
     actor_id: int | None,
     organization_id=None,
-    metadata: dict | None = None,
+    metadata: dict[str, object] | None = None,
 ) -> AuditEvent:
     if not connection.in_atomic_block:
         raise ImproperlyConfigured(
@@ -56,12 +57,15 @@ def record_audit_event(
     if len(encoded.encode("utf-8")) > _MAX_METADATA_BYTES:
         raise ImproperlyConfigured("Audit metadata is limited to 16 KiB.")
 
-    return AuditEvent.objects.create(
-        action=action,
-        subject_type=subject_type,
-        subject_id=subject,
-        actor_id=actor_id,
-        organization_id=organization_id,
-        request_id=get_request_id() or "",
-        metadata=payload,
+    return cast(
+        AuditEvent,
+        AuditEvent.objects.create(
+            action=action,
+            subject_type=subject_type,
+            subject_id=subject,
+            actor_id=actor_id,
+            organization_id=organization_id,
+            request_id=get_request_id() or "",
+            metadata=payload,
+        ),
     )
