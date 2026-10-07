@@ -1,5 +1,5 @@
-from datetime import timedelta
 import uuid
+from datetime import timedelta
 
 import pytest
 from django.core.exceptions import ImproperlyConfigured
@@ -7,7 +7,12 @@ from django.core.management import call_command
 from django.test import override_settings
 from django.utils import timezone
 
-from apps.core.models import AuditEvent, IdempotencyRecord, OutboxEvent, SecurityThrottleBucket
+from apps.core.models import (
+    AuditEvent,
+    IdempotencyRecord,
+    OutboxEvent,
+    SecurityThrottleBucket,
+)
 from apps.files.models import PrivateFile
 from apps.notifications.models import NotificationDelivery
 from apps.organizations.models import Organization
