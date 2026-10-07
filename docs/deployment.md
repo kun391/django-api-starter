@@ -275,9 +275,19 @@ docker compose -p "$DEPLOY_PROJECT" -f compose.production.yaml run --rm --no-dep
   python manage.py dispatch_outbox --batch-size 100
 docker compose -p "$DEPLOY_PROJECT" -f compose.production.yaml run --rm --no-deps -T web \
   python manage.py purge_security_throttles --batch-size 1000
+docker compose -p "$DEPLOY_PROJECT" -f compose.production.yaml run --rm --no-deps -T web \
+  python manage.py purge_retained_data --category all --batch-size 1000
+# After reviewing dry-run output and retention settings:
+docker compose -p "$DEPLOY_PROJECT" -f compose.production.yaml run --rm --no-deps -T web \
+  python manage.py purge_retained_data --category all --batch-size 1000 --confirm
 ```
 
-Also schedule the existing idempotency retention command from the API contract.
+The Phase 21 retention command also covers expired idempotency/security-throttle
+records, so deployments may keep the older dedicated purge commands for backward
+compatibility or replace them with the unified scheduler. Do not run both at
+high frequency without reason. History categories remain disabled until their
+RETENTION_* setting is explicitly non-zero.
+
 Select cadence against event volume and the accepted cleanup delay; one batch
 per day is not enough for a busy outbox. Monitor backlog age, retries/dead letters,
 abandoned uploads, tombstone rechecks, disk space and failed scheduler executions.
