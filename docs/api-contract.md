@@ -204,3 +204,40 @@ client-breaking changes.
 References: RFC 9457 (https://www.rfc-editor.org/rfc/rfc9457.html), DRF exception
 handling (https://www.django-rest-framework.org/api-guide/exceptions/), PostgreSQL
 advisory locking (https://www.postgresql.org/docs/17/functions-admin.html#FUNCTIONS-ADVISORY-LOCKS).
+
+
+## Optimistic concurrency (Phase 15)
+
+Write concurrency is explicit and opt-in. Resource modules that advertise the
+`If-Match` header must issue a strong resource ETag and validate the precondition
+inside the same database transaction that locks and mutates the row.
+
+The reference `Ticket` resource returns a strong ETag from create, detail GET and
+successful PATCH. Clients PATCH with the latest value:
+
+```text
+GET /api/v1/tickets/{id}/
+ETag: "..."
+
+PATCH /api/v1/tickets/{id}/
+If-Match: "..."
+```
+
+Missing `If-Match` returns 428 `precondition_required`. A stale, malformed or
+weak validator returns 412 `precondition_failed`. Authorization/object scoping is
+resolved before validator comparison so a stale token never reveals a resource the
+caller cannot access.
+
+The validator is derived from server-owned resource identity plus a monotonically
+increasing row revision. It is not derived from timestamps and it is not the weak
+representation ETag used by generic conditional list/read responses. Business
+changes that alter the ticket representation, including attachment links, advance
+the revision.
+
+`If-Match: *` is accepted only after normal authorization and locked resource
+existence are established. It means "mutate the current authorized resource
+regardless of its revision"; clients that need lost-update protection should use
+the exact strong ETag instead.
+
+Do not validate optimistic concurrency in middleware before authorization, from a
+cache, or against an unlocked ORM object. Do not reuse weak ETags as write tokens.

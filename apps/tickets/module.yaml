@@ -25,6 +25,7 @@ uses:
   - core.outbox
   - core.caching
   - core.api-contract
+  - core.optimistic-concurrency
 emits:
   - tickets.ticket-created
   - tickets.ticket-updated
@@ -38,3 +39,5 @@ rules:
   - tenant and personal list/detail APIs never expose each other's rows
   - attachments must already be READY private files owned by the attaching actor
   - ticket creation is idempotent and tenant idempotency scopes include server-resolved organization ID
+  - PATCH requires the latest strong If-Match validator checked under the authoritative row lock
+  - every representation-changing ticket mutation advances the resource revision

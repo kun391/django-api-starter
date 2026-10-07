@@ -3,6 +3,12 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.core.api.concurrency import (
+    IF_MATCH_PARAMETER,
+    StrongResourceETagMixin,
+    mark_resource_response,
+    resource_etag,
+)
 from apps.core.api.conditional import IF_NONE_MATCH_PARAMETER, ConditionalGetMixin
 from apps.core.api.idempotency import idempotent_post
 from apps.core.api.schema import IDEMPOTENCY_KEY_PARAMETER
@@ -20,7 +26,18 @@ from .serializers import (
 )
 
 
-class BaseTicketViewSet(ConditionalGetMixin, viewsets.GenericViewSet):
+def _ticket_response(ticket, *, status_code=200):
+    return mark_resource_response(
+        Response(TicketSerializer(ticket).data, status=status_code),
+        etag=resource_etag("ticket", ticket.pk, ticket.revision),
+    )
+
+
+class BaseTicketViewSet(
+    StrongResourceETagMixin,
+    ConditionalGetMixin,
+    viewsets.GenericViewSet,
+):
     permission_classes = [permissions.IsAuthenticated]
     filterset_class = TicketFilter
     search_fields = ["title", "description"]
@@ -49,7 +66,7 @@ class BaseTicketViewSet(ConditionalGetMixin, viewsets.GenericViewSet):
         return self.get_paginated_response(serializer.data)
 
     def retrieve(self, request, *args, **kwargs):
-        return Response(TicketSerializer(self.get_object()).data)
+        return _ticket_response(self.get_object())
 
 
 @extend_schema_view(
@@ -63,6 +80,7 @@ class BaseTicketViewSet(ConditionalGetMixin, viewsets.GenericViewSet):
     partial_update=extend_schema(
         request=TicketUpdateSerializer,
         responses={200: TicketSerializer},
+        parameters=[IF_MATCH_PARAMETER],
     ),
 )
 @extend_schema(tags=["tickets"])
@@ -83,10 +101,7 @@ class TicketViewSet(BaseTicketViewSet):
                 actor=request.user,
                 **serializer.validated_data,
             )
-            return Response(
-                TicketSerializer(ticket).data,
-                status=status.HTTP_201_CREATED,
-            )
+            return _ticket_response(ticket, status_code=status.HTTP_201_CREATED)
 
         return idempotent_post(
             request,
@@ -101,9 +116,10 @@ class TicketViewSet(BaseTicketViewSet):
             actor=request.user,
             ticket_id=pk,
             changes=serializer.validated_data,
+            if_match=request.headers.get("If-Match"),
         )
         ticket = self.get_queryset().get(pk=ticket.pk)
-        return Response(TicketSerializer(ticket).data)
+        return _ticket_response(ticket)
 
     @extend_schema(
         request=TicketAttachmentCreateSerializer,
@@ -145,6 +161,7 @@ class TicketViewSet(BaseTicketViewSet):
     partial_update=extend_schema(
         request=TicketUpdateSerializer,
         responses={200: TicketSerializer},
+        parameters=[IF_MATCH_PARAMETER],
     ),
 )
 @extend_schema(tags=["organization-tickets"])
@@ -181,10 +198,7 @@ class OrganizationTicketViewSet(BaseTicketViewSet):
                 organization_id=access.organization.pk,
                 **serializer.validated_data,
             )
-            return Response(
-                TicketSerializer(ticket).data,
-                status=status.HTTP_201_CREATED,
-            )
+            return _ticket_response(ticket, status_code=status.HTTP_201_CREATED)
 
         return idempotent_post(
             request,
@@ -201,9 +215,10 @@ class OrganizationTicketViewSet(BaseTicketViewSet):
             organization_id=access.organization.pk,
             ticket_id=pk,
             changes=serializer.validated_data,
+            if_match=request.headers.get("If-Match"),
         )
         ticket = self.get_queryset().get(pk=ticket.pk)
-        return Response(TicketSerializer(ticket).data)
+        return _ticket_response(ticket)
 
     @extend_schema(
         request=TicketAttachmentCreateSerializer,

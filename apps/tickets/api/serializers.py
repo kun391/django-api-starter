@@ -28,6 +28,7 @@ class TicketSerializer(serializers.ModelSerializer):
             "description",
             "status",
             "priority",
+            "revision",
             "attachments",
             "created_at",
             "updated_at",

@@ -38,6 +38,7 @@ class Ticket(models.Model):
         choices=Status.choices,
         default=Status.OPEN,
     )
+    revision = models.PositiveBigIntegerField(default=1)
     priority = models.CharField(
         max_length=10,
         choices=Priority.choices,
