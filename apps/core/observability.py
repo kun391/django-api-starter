@@ -26,6 +26,19 @@ _OPERATIONAL_LOG_FIELDS = (
     "processed_count",
 )
 
+_operational_logger = logging.getLogger("operations.background")
+
+
+def log_batch_completed(*, queue: str, processed_count: int) -> None:
+    _operational_logger.info(
+        "background.batch.completed",
+        extra={
+            "operation": "background.batch.completed",
+            "queue_name": queue,
+            "processed_count": processed_count,
+        },
+    )
+
 
 def get_request_id() -> str | None:
     return _request_id.get()
