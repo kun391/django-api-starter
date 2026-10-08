@@ -246,6 +246,21 @@ def inject_trace_context(metadata: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def capture_trace_context(
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    result = dict(metadata or {})
+    if not enabled():
+        return result
+    carrier: dict[str, str] = {}
+    _import("opentelemetry.propagate").inject(carrier)
+    for key in ("traceparent", "tracestate"):
+        value = carrier.get(key)
+        if value:
+            result[key] = value
+    return result
+
+
 def current_trace_ids() -> tuple[str | None, str | None]:
     if not enabled():
         return None, None
