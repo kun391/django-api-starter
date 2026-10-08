@@ -7,6 +7,7 @@ optional SDK live behind TELEMETRY_ENABLED and the telemetry dependency extra.
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import time
 from contextlib import contextmanager
 from typing import Any
@@ -138,7 +139,8 @@ def configure_telemetry() -> bool:
 
     _install_database_metrics()
     _import("opentelemetry.instrumentation.psycopg2").Psycopg2Instrumentor().instrument()
-    _import("opentelemetry.instrumentation.celery").CeleryInstrumentor().instrument()
+    if importlib.util.find_spec("celery") is not None:
+        _import("opentelemetry.instrumentation.celery").CeleryInstrumentor().instrument()
 
     _configured = True
     return True
