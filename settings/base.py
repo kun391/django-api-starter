@@ -209,7 +209,15 @@ CORS_ALLOWED_ORIGINS = config(
     cast=lambda value: [item.strip() for item in value.split(",") if item.strip()],
 )
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_HEADERS = (*default_headers, "x-request-id", "idempotency-key", "if-none-match", "if-match")
+CORS_ALLOW_HEADERS = (
+    *default_headers,
+    "x-request-id",
+    "idempotency-key",
+    "if-none-match",
+    "if-match",
+    "traceparent",
+    "tracestate",
+)
 CORS_EXPOSE_HEADERS = ["X-Request-ID", "Idempotency-Replayed", "Retry-After", "ETag", "Content-Disposition"]
 
 CSRF_TRUSTED_ORIGINS = config(
