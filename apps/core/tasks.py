@@ -3,8 +3,8 @@
 from celery import shared_task
 
 from apps.core.observability import log_batch_completed
-from apps.core.telemetry import span
 from apps.core.outbox import process_outbox_batch
+from apps.core.telemetry import span
 
 
 @shared_task(
