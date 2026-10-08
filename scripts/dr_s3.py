@@ -1,6 +1,6 @@
-"""Read-only S3 version-pinned inventory for recovery verification.
+"""S3 version-pinned verification and guarded isolated-bucket restore.
 
-Requires optional boto3. Selects ONLY a supplied bucket, never deletes or copies.
+Requires optional boto3. Never deletes objects or creates buckets.
 """
 from __future__ import annotations
 
@@ -79,6 +79,66 @@ def verify(client, bucket: str, manifest: dict) -> None:
             raise ValueError("Snapshot object mismatch")
 
 
+
+def restore_to_isolated_bucket(
+    client, source_bucket: str, target_bucket: str, manifest: dict, confirm: str
+) -> dict:
+    """Copy pinned source versions to a pre-provisioned, empty DR bucket.
+
+    This is not an atomic transaction. On failure, leave partial results for
+    investigation; never overwrite or remove objects.
+    """
+    if not isinstance(target_bucket, str) or not re.fullmatch(
+        r"dr-[a-z0-9][a-z0-9-]{2,62}", target_bucket
+    ):
+        raise ValueError("Restore target must be a dedicated dr- bucket")
+    if target_bucket == source_bucket:
+        raise ValueError("Source and DR target bucket must differ")
+    if confirm != f"RESTORE:{source_bucket}->{target_bucket}":
+        raise ValueError("Explicit RESTORE:<source>-><dr-target> confirmation required")
+    if client.get_bucket_versioning(Bucket=target_bucket).get("Status") != "Enabled":
+        raise ValueError("DR target must have S3 versioning enabled")
+    existing = client.list_object_versions(Bucket=target_bucket, MaxKeys=1)
+    if existing.get("Versions") or existing.get("DeleteMarkers"):
+        raise ValueError("DR target has existing objects or historical versions")
+    if client.list_objects_v2(Bucket=target_bucket, MaxKeys=1).get("Contents"):
+        raise ValueError("DR target must be empty")
+
+    # Validate all historical source object bytes before initiating writes.
+    verify(client, source_bucket, manifest)
+    entries = manifest["objects"]
+    source = {}
+    for item in entries:
+        key = item["key"]
+        size = item["bytes"]
+        checksum = item["sha256"]
+        if key in source:
+            raise ValueError("Duplicate object key in recovery manifest")
+        if type(size) is not int or not 0 <= size <= 16 * 1024 * 1024:
+            raise ValueError("Invalid recovery object size")
+        if not isinstance(checksum, str) or not re.fullmatch(r"[0-9a-f]{64}", checksum):
+            raise ValueError("Invalid recovery checksum")
+        source[key] = (size, checksum)
+
+    for item in entries:
+        client.copy_object(
+            Bucket=target_bucket,
+            Key=item["key"],
+            CopySource={
+                "Bucket": source_bucket,
+                "Key": item["key"],
+                "VersionId": item["version_id"],
+            },
+            MetadataDirective="COPY",
+        )
+
+    # Read the destination bytes, not only copy-object responses or ETags.
+    recovered = inventory(client, target_bucket)
+    actual = {item["key"]: (item["bytes"], item["sha256"]) for item in recovered["objects"]}
+    if actual != source:
+        raise ValueError("DR target checksum/key mismatch; isolate partial recovery")
+    return recovered
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bucket", required=True)
@@ -87,6 +147,9 @@ def main() -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--output", type=Path)
     group.add_argument("--verify", type=Path)
+    group.add_argument("--restore-to")
+    parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--confirm")
     args = parser.parse_args()
     try:
         if args.endpoint and not args.endpoint.startswith("https://") and os.environ.get("DR_TEST_ALLOW_HTTP") != "yes":
@@ -100,12 +163,22 @@ def main() -> int:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(data, handle, indent=2)
                 handle.write("\n")
-        else:
-            if args.verify.is_symlink():
-                raise ValueError("Manifest symlink denied")
+        elif args.verify:
+            if args.verify.is_symlink() or not args.verify.is_file():
+                raise ValueError("Manifest must be a regular file")
             data = json.loads(args.verify.read_text(encoding="utf-8"))
             verify(client, args.bucket, data)
-        print("S3 recovery inventory verified")
+            print("S3 recovery inventory verified")
+        else:
+            if args.manifest is None or args.confirm is None:
+                raise ValueError("--manifest and --confirm are required for restore")
+            if args.manifest.is_symlink() or not args.manifest.is_file():
+                raise ValueError("Manifest must be a regular file")
+            data = json.loads(args.manifest.read_text(encoding="utf-8"))
+            restored = restore_to_isolated_bucket(
+                client, args.bucket, args.restore_to, data, args.confirm
+            )
+            print(f"Verified {len(restored['objects'])} objects in isolated DR bucket")
         return 0
     except (OSError, ValueError, KeyError, TypeError, ImportError) as exc:
         print(f"S3 recovery verification failed: {exc}")

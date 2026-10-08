@@ -214,3 +214,20 @@ latest remotely verified snapshot, not a local manifest that was never uploaded.
 For S3, the CI job tests real MinIO bucket versioning, pinned historical
 object reads and mismatch detection against Django PrivateFile metadata. The
 test fixture creates and deletes only its own randomly generated bucket.
+
+## Version-pinned S3 recovery into an isolated DR bucket
+
+Provision a fresh bucket with versioning enabled and a dedicated DR principal.
+Keep workers, schedules, webhooks and public traffic disabled. The source bucket
+must have accessible historical versions identified in a trusted inventory.
+
+The optional `scripts/dr_s3.py` CLI can copy historical version-pinned objects
+to a **pre-existing empty** DR bucket, then read the destination to validate
+object keys, byte lengths and SHA-256 hashes. It refuses an unversioned destination,
+existing objects or delete markers, and source/destination identity.
+
+Run with `--bucket <source> --restore-to <dr-bucket> --manifest <inventory.json>`
+and `--confirm RESTORE:<source>-><dr-bucket>`. Use dedicated IAM credentials
+restricted to read specified source object versions and write only the new DR
+bucket. An interrupted copy may leave partial contents; investigate rather than
+automatically delete. This is not an atomic DB/S3 restore or an offsite replica.

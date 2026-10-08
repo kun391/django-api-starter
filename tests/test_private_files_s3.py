@@ -1,5 +1,6 @@
 """Real S3-compatible integration; deliberately not a mock/emulator test."""
 
+import json
 import os
 from importlib import import_module
 from urllib.error import HTTPError
@@ -12,10 +13,9 @@ from django.core.files.storage import storages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 
-from scripts import dr_reconcile, dr_s3
-
 from apps.core.outbox import process_outbox_batch
 from apps.files import services
+from scripts import dr_reconcile, dr_s3
 from settings import file_storage
 
 ENDPOINT = os.environ.get("TEST_S3_ENDPOINT_URL", "")
@@ -122,8 +122,6 @@ def test_dr_s3_versioned_recovery_matches_privatefile_metadata(s3_backend, user,
     )
     db_manifest = tmp_path / "db-file-metadata.json"
     call_command("export_dr_file_manifest", output=db_manifest)
-    import json
-
     db_files = json.loads(db_manifest.read_text(encoding="utf-8"))["files"]
     original_inventory = dr_s3.inventory(client, bucket)
     assert len(original_inventory["objects"]) == 1
@@ -150,3 +148,37 @@ def test_dr_s3_inventory_rejects_unversioned_disposable_bucket(s3_backend):
     client.put_object(Bucket=bucket, Key=key, Body=b"test")
     with pytest.raises(ValueError, match="Versioned"):
         dr_s3.inventory(client, bucket)
+
+def test_dr_s3_restore_to_separate_versioned_bucket(s3_backend, user):
+    _, client, source_bucket = s3_backend
+    target_bucket = f"dr-{uuid4().hex}"
+    client.create_bucket(Bucket=target_bucket)
+    client.put_bucket_versioning(
+        Bucket=source_bucket, VersioningConfiguration={"Status": "Enabled"}
+    )
+    client.put_bucket_versioning(
+        Bucket=target_bucket, VersioningConfiguration={"Status": "Enabled"}
+    )
+    try:
+        record = services.upload_file(
+            actor=user, upload=SimpleUploadedFile("restore.txt", b"historical payload")
+        )
+        original = dr_s3.inventory(client, source_bucket)
+        client.put_object(Bucket=source_bucket, Key=record.object_key, Body=b"later content")
+        with pytest.raises(ValueError, match="confirmation"):
+            dr_s3.restore_to_isolated_bucket(client, source_bucket, target_bucket, original, "yes")
+        restored = dr_s3.restore_to_isolated_bucket(
+            client, source_bucket, target_bucket, original,
+            f"RESTORE:{source_bucket}->{target_bucket}",
+        )
+        assert restored["objects"][0]["sha256"] == original["objects"][0]["sha256"]
+        with pytest.raises(ValueError, match="existing objects"):
+            dr_s3.restore_to_isolated_bucket(
+                client, source_bucket, target_bucket, original,
+                f"RESTORE:{source_bucket}->{target_bucket}",
+            )
+    finally:
+        for page in client.get_paginator("list_object_versions").paginate(Bucket=target_bucket):
+            for obj in page.get("Versions", []) + page.get("DeleteMarkers", []):
+                client.delete_object(Bucket=target_bucket, Key=obj["Key"], VersionId=obj["VersionId"])
+        client.delete_bucket(Bucket=target_bucket)
