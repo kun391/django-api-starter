@@ -7,7 +7,6 @@ optional SDK live behind TELEMETRY_ENABLED and the telemetry dependency extra.
 from __future__ import annotations
 
 import importlib
-import importlib.util
 import time
 from contextlib import contextmanager
 from typing import Any
@@ -138,9 +137,6 @@ def configure_telemetry() -> bool:
     metrics.set_meter_provider(meter_provider)
 
     _install_database_metrics()
-    _import("opentelemetry.instrumentation.psycopg2").Psycopg2Instrumentor().instrument()
-    if importlib.util.find_spec("celery") is not None:
-        _import("opentelemetry.instrumentation.celery").CeleryInstrumentor().instrument()
 
     _configured = True
     return True
@@ -264,7 +260,12 @@ def _db_execute_wrapper(execute, sql, params, many, context):
     started = time.perf_counter()
     outcome = "ok"
     try:
-        return execute(sql, params, many, context)
+        with span(
+            "db.query",
+            kind="client",
+            attributes={"db.system": "postgresql"},
+        ):
+            return execute(sql, params, many, context)
     except Exception:
         outcome = "error"
         raise
@@ -291,3 +292,8 @@ def _install_database_metrics() -> None:
         dispatch_uid="core.telemetry.database_metrics",
         weak=False,
     )
+    from django.db import connections
+
+    for connection in connections.all():
+        if connection.connection is not None:
+            _attach_db_wrapper(None, connection)
