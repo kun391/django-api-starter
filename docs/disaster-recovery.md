@@ -196,3 +196,21 @@ The encrypted copy is not automatically immutable or retained. Configure
 provider-side WORM/Object Lock where available, separate operator permissions,
 retention and alerting. Audit restoration regularly, measure RPO/RTO, and
 maintain offline access to encryption keys. No CI job uses real offsite secrets.
+
+## Recovery acceptance monitoring
+
+The `scripts/dr_freshness.py` helper checks the age of an operator-supplied
+manifest with timezone-aware `created_at` and fails on stale, future, missing
+or invalid timestamps. Run it only against a manifest already authenticated by
+the backup repository or trusted manifest verification process:
+
+```bash
+python3 scripts/dr_freshness.py --manifest /secure/latest-verified-db.json --max-hours 24
+```
+
+This is a **recency signal**, not proof of data consistency or successful backup
+and restore. Schedule it externally with alerting, and ensure it examines the
+latest remotely verified snapshot, not a local manifest that was never uploaded.
+For S3, the CI job tests real MinIO bucket versioning, pinned historical
+object reads and mismatch detection against Django PrivateFile metadata. The
+test fixture creates and deletes only its own randomly generated bucket.
