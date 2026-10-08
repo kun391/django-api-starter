@@ -4,11 +4,13 @@ from unittest.mock import Mock
 
 import pytest
 from django.db import transaction
+from unittest.mock import patch
 from django.utils import timezone
 
 from apps.core import outbox
 from apps.core.models import OutboxEvent
 from apps.notifications.models import NotificationDelivery
+from apps.organizations.models import OrganizationMembership
 from apps.notifications.services import (
     claim_delivery_batch as claim_notification_batch,
 )
@@ -184,3 +186,56 @@ def test_terminal_downstream_failure_does_not_make_api_readiness_fail(
     response = api_client.get("/health/ready/")
     assert response.status_code == 200
     assert response.json() == {"status": "ready", "database": "ok"}
+
+
+
+def test_partial_fanout_failure_retries_without_duplicate_side_effects(user):
+    organization = Organization.objects.create(
+        name="Fanout Org",
+        slug=f"fanout-{uuid.uuid4().hex[:8]}",
+    )
+    OrganizationMembership.objects.create(
+        organization=organization,
+        user=user,
+        role="owner",
+    )
+    WebhookSubscription.objects.create(
+        organization=organization,
+        url="https://93.184.216.34/hook",
+        events=["tickets.ticket-created"],
+        created_by_id=user.pk,
+    )
+    with transaction.atomic():
+        event = outbox.record_outbox_event(
+            topic="tickets.ticket-created",
+            payload={
+                "organization_id": str(organization.pk),
+                "ticket_id": str(uuid.uuid4()),
+                "owner_id": user.pk,
+                "priority": "normal",
+                "revision": 1,
+            },
+        )
+
+    with patch.object(
+        NotificationDelivery.objects,
+        "get_or_create",
+        side_effect=RuntimeError("notification-db-failure"),
+    ):
+        assert outbox.process_outbox_batch() == 0
+
+    event.refresh_from_db()
+    assert event.published_at is None
+    assert event.attempts == 1
+    assert WebhookDelivery.objects.filter(source_event_id=event.pk).count() == 1
+    assert NotificationDelivery.objects.count() == 0
+
+    OutboxEvent.objects.filter(pk=event.pk).update(
+        available_at=timezone.now() - timedelta(seconds=1)
+    )
+    assert outbox.process_outbox_batch() == 1
+
+    event.refresh_from_db()
+    assert event.published_at is not None
+    assert WebhookDelivery.objects.filter(source_event_id=event.pk).count() == 1
+    assert NotificationDelivery.objects.filter(source_event_id=event.pk).count() == 1
