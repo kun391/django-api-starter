@@ -111,6 +111,41 @@ jobs:
           bash -n scripts/smoke_production.sh
           sh -n scripts/deploy.sh
 
+  disaster-recovery:
+    name: PostgreSQL DR roundtrip
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      DR_CI_ISOLATED: "yes"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install matching PostgreSQL 17 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+      - name: Validate DR script shell syntax
+        run: sh -n scripts/test_dr_postgres.sh
+      - name: Isolated backup, verify, restore, reject overwrites and corruption
+        run: sh scripts/test_dr_postgres.sh
+
   resilience:
     name: Resilience contracts
     runs-on: ubuntu-latest
