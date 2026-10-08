@@ -96,6 +96,8 @@ jobs:
             /tmp/base-schema.yaml /tmp/schema.yaml "${args[@]}"
           uv run python scripts/check_migration_safety.py \
             --base "$BASE_SHA" "${args[@]}"
+      - name: Private-file DR inventory safety tests
+        run: uv run pytest tests/test_dr_private_files.py
       - name: Tests
         run: uv run pytest
       - name: Compose config

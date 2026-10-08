@@ -82,6 +82,34 @@ and expiration/retention behavior. Suppress outbound side effects. Record
 start/end timestamps, achieved RPO/RTO, missing data and remediation. Fail the
 drill if assets are missing or external integrations were accidentally invoked.
 
+
+## Filesystem snapshot inventory verification (Part 3)
+
+The read-only `scripts/dr_private_files.py` tool fingerprints a **previously
+created, quiesced** private-files snapshot. It does not copy objects, stop
+writers, create an atomic snapshot, upload/encrypt files, or coordinate a
+PostgreSQL recovery point. Run it against an isolated snapshot, NOT live storage:
+
+```bash
+python3 scripts/dr_private_files.py inventory --root /isolated/private-files-snapshot \\
+  --output /isolated/private-files-inventory.json
+python3 scripts/dr_private_files.py verify --root /isolated/private-files-snapshot \\
+  --manifest /isolated/private-files-inventory.json
+```
+
+The manifest records immutable object keys, byte counts and SHA-256; verification
+rejects missing, unexpected, changed or symlinked objects. Store manifest
+separately and authenticate it through your encrypted/immutable offsite backup
+process; its hash alone cannot prove origin. Filesystem content must be captured
+at an application-consistent point with the PostgreSQL backup. Stop uploads,
+cleanup consumers and any writers, take a storage snapshot, capture database
+recovery state, and only resume after the consistency boundary is recorded.
+A sequential `pg_dump` and file copy does **not** guarantee atomic consistency.
+For S3 deployments use versioned/immutable bucket snapshots and an independent
+object inventory; this filesystem tool is **not** an S3 exporter or verifier.
+Do not claim a complete DR drill until restored PrivateFile READY records are
+cross-checked against every required object, including byte length and hash.
+
 ## Disaster recovery decision sequence
 
 1. Declare incident, isolate compromised principals and stop writers/consumers.
