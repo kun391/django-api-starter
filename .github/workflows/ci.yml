@@ -149,22 +149,40 @@ jobs:
         run: sh scripts/test_dr_postgres.sh
 
   offsite-dr:
-    name: Encrypted offsite recovery roundtrip
+    name: Complete encrypted PostgreSQL + files recovery drill
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DR_CI_ISOLATED: "yes"
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
-      - name: Install restic
+      - name: Install restic and matching PostgreSQL client
         run: |
           sudo apt-get update
-          sudo apt-get install -y restic
+          sudo apt-get install -y restic postgresql-client-16
       - name: Encrypted backup, repository check and isolated restore
         run: python3 scripts/test_dr_offsite_roundtrip.py
+      - name: Full disposable PostgreSQL, private files and restic drill
+        run: python3 scripts/test_dr_full_drill.py
 
   resilience:
     name: Resilience contracts
