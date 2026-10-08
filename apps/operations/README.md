@@ -84,6 +84,8 @@ At minimum alert on:
 - PostgreSQL readiness failures;
 - scheduler/worker process absence.
 
-Phase 20 does not install Prometheus, OpenTelemetry, Grafana, Sentry dashboards or
-a hosted monitoring vendor. The aggregate contract is intentionally portable to
-those systems later.
+Phase 23 adds optional OpenTelemetry export for these aggregate queue gauges and
+other application signals. It still does not install Prometheus, Grafana, Tempo,
+a collector or a hosted monitoring vendor. Queue gauges are emitted when an
+operations snapshot is generated, so poll the endpoint or schedule
+`report_operations` when fresh queue gauges are required.
