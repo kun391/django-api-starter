@@ -15,6 +15,7 @@ from django.http import Http404
 from django.utils import timezone
 
 from apps.core.audit import record_audit_event
+from apps.core.telemetry import counter_add, span
 from apps.organizations.access import require_roles, resolve_access
 
 from .models import WebhookDelivery, WebhookSubscription
@@ -172,6 +173,15 @@ def _delivery_body(delivery_id, envelope: dict[str, Any], *, replay_of=None):
     return body
 
 
+def _trace_context(envelope: dict[str, Any]) -> dict[str, str]:
+    metadata = envelope.get("metadata", {})
+    return {
+        key: str(metadata[key])
+        for key in ("traceparent", "tracestate", "request_id")
+        if isinstance(metadata.get(key), str) and metadata.get(key)
+    }
+
+
 def _fanout_key(subscription_id, source_event_id) -> str:
     value = f"{subscription_id}:{source_event_id}".encode()
     return "event:" + hashlib.sha256(value).hexdigest()
@@ -207,6 +217,7 @@ def fanout_event(envelope: dict[str, Any]) -> int:
                     "event_topic": topic,
                     "event_version": int(envelope["version"]),
                     "body": _delivery_body(delivery_id, envelope),
+                    "trace_context": _trace_context(envelope),
                 },
             )
             created += int(was_created)
@@ -258,6 +269,11 @@ def claim_delivery_batch(*, batch_size: int | None = None) -> list[ClaimedDelive
 
 
 def _finish_success(claim: ClaimedDelivery, status_code: int) -> None:
+    counter_add(
+        "app.queue.delivery.results",
+        1,
+        attributes={"queue": "webhooks", "outcome": "success"},
+    )
     WebhookDelivery.objects.filter(
         pk=claim.delivery_id,
         lock_token=claim.lock_token,
@@ -278,6 +294,11 @@ def _finish_failure(
     error_code: str,
     response_status: int | None = None,
 ) -> None:
+    counter_add(
+        "app.queue.delivery.results",
+        1,
+        attributes={"queue": "webhooks", "outcome": "failure"},
+    )
     max_attempts = getattr(settings, "WEBHOOK_MAX_ATTEMPTS", 8)
     base_seconds = getattr(settings, "WEBHOOK_RETRY_BASE_SECONDS", 30)
     max_seconds = getattr(settings, "WEBHOOK_RETRY_MAX_SECONDS", 3600)
@@ -341,6 +362,11 @@ def process_delivery_batch(
                 locked_until=None,
                 lock_token=None,
             )
+            counter_add(
+                "app.queue.delivery.results",
+                1,
+                attributes={"queue": "webhooks", "outcome": "cancelled"},
+            )
             continue
 
         body = json.dumps(
@@ -360,21 +386,41 @@ def process_delivery_batch(
             timestamp=timestamp,
             body=body,
         )
-        try:
-            status_code = transport(subscription.url, body, headers)
-        except (WebhookTransportError, ValidationError) as exc:
-            _finish_failure(claim, error_code=type(exc).__name__)
-            continue
+        trace_context = delivery.trace_context or {}
+        carrier = {
+            key: str(value)
+            for key, value in trace_context.items()
+            if key in {"traceparent", "tracestate"} and isinstance(value, str)
+        }
+        attributes = {
+            "messaging.system": "webhook",
+            "messaging.message.id": str(delivery.source_event_id),
+        }
+        request_id = trace_context.get("request_id")
+        if isinstance(request_id, str) and request_id:
+            attributes["app.request_id"] = request_id
 
-        if 200 <= status_code < 300:
-            _finish_success(claim, status_code)
-            successful += 1
-        else:
-            _finish_failure(
-                claim,
-                error_code=f"http_{status_code}",
-                response_status=status_code,
-            )
+        with span(
+            "webhook.deliver",
+            carrier=carrier,
+            kind="client",
+            attributes=attributes,
+        ):
+            try:
+                status_code = transport(subscription.url, body, headers)
+            except (WebhookTransportError, ValidationError) as exc:
+                _finish_failure(claim, error_code=type(exc).__name__)
+                continue
+
+            if 200 <= status_code < 300:
+                _finish_success(claim, status_code)
+                successful += 1
+            else:
+                _finish_failure(
+                    claim,
+                    error_code=f"http_{status_code}",
+                    response_status=status_code,
+                )
     return successful
 
 
