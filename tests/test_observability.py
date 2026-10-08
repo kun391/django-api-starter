@@ -2,6 +2,7 @@ import json
 
 from django.urls import reverse
 
+from apps.core import telemetry
 from apps.core.observability import JsonFormatter
 
 
@@ -49,3 +50,13 @@ def test_json_formatter_emits_structured_log():
     assert payload["logger"] == "tests"
     assert payload["message"] == "hello"
     assert "timestamp" in payload
+
+
+
+def test_telemetry_is_disabled_and_dependency_free_by_default(settings):
+    settings.TELEMETRY_ENABLED = False
+    assert telemetry.configure_telemetry() is False
+    assert telemetry.current_trace_ids() == (None, None)
+    assert telemetry.capture_trace_context({"request_id": "base-install"}) == {
+        "request_id": "base-install"
+    }
