@@ -236,6 +236,6 @@ def test_partial_fanout_failure_retries_without_duplicate_side_effects(user):
     assert outbox.process_outbox_batch() == 1
 
     event.refresh_from_db()
-    assert event.published_at is not None
+    assert getattr(event, "published_at", None) is not None
     assert WebhookDelivery.objects.filter(source_event_id=event.pk).count() == 1
     assert NotificationDelivery.objects.filter(source_event_id=event.pk).count() == 1
