@@ -111,6 +111,52 @@ jobs:
           bash -n scripts/smoke_production.sh
           sh -n scripts/deploy.sh
 
+  resilience:
+    name: Resilience contracts
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: django_api
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d django_api"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DJANGO_SETTINGS_MODULE: settings.test
+      POSTGRES_DB: django_api
+      POSTGRES_USER: postgres
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: latest-known
+          enable-cache: true
+      - name: Sync dependencies
+        run: uv sync --locked --group dev
+      - name: Failure and recovery contracts
+        run: |
+          uv run pytest \
+            tests/test_resilience.py \
+            tests/test_deployment.py::test_readiness_failure_is_generic_and_uncached \
+            tests/test_private_files.py::test_ambiguous_storage_failure_has_durable_compensation \
+            tests/test_private_files.py::test_deletion_retry_replay_and_error_hygiene
+
+
   production-smoke:
     name: Production smoke
     runs-on: ubuntu-latest

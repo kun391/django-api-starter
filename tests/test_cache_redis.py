@@ -90,3 +90,21 @@ def test_redis_inflight_fill_cannot_undo_commit_invalidation(redis_cache):
             release.set()
         assert future.result(timeout=10) == "old"
     assert read(Mock(side_effect=AssertionError("must hit the new generation"))) == "new"
+
+
+
+def test_real_redis_connection_refused_fails_open(settings):
+    settings.CACHES = {
+        **settings.CACHES,
+        "performance": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": "redis://127.0.0.1:1/15",
+            "OPTIONS": {
+                "socket_connect_timeout": 0.05,
+                "socket_timeout": 0.05,
+            },
+        },
+    }
+    load = Mock(return_value={"source": "database"})
+    assert read(load) == {"source": "database"}
+    load.assert_called_once_with()
