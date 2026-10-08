@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from importlib import import_module
 import json
 import os
 import re
@@ -90,9 +91,7 @@ def main() -> int:
     try:
         if args.endpoint and not args.endpoint.startswith("https://") and os.environ.get("DR_TEST_ALLOW_HTTP") != "yes":
             raise ValueError("S3 endpoint must use HTTPS")
-        import boto3
-
-        client = boto3.client("s3", region_name=args.region, endpoint_url=args.endpoint)
+        client = import_module("boto3").client("s3", region_name=args.region, endpoint_url=args.endpoint)
         if args.output:
             if args.output.exists() or args.output.is_symlink():
                 raise ValueError("Manifest already exists")
