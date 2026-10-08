@@ -12,7 +12,9 @@ from apps.notifications.models import NotificationDelivery
 from apps.notifications.services import (
     claim_delivery_batch as claim_notification_batch,
 )
-from apps.notifications.services import process_delivery_batch as process_notification_batch
+from apps.notifications.services import (
+    process_delivery_batch as process_notification_batch,
+)
 from apps.organizations.models import Organization, OrganizationMembership
 from apps.webhooks.models import WebhookDelivery, WebhookSubscription
 from apps.webhooks.services import claim_delivery_batch as claim_webhook_batch
