@@ -10,6 +10,9 @@ from uuid import uuid4
 import pytest
 from django.core.files.storage import storages
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
+
+from scripts import dr_reconcile, dr_s3
 
 from apps.core.outbox import process_outbox_batch
 from apps.files import services
@@ -39,9 +42,15 @@ def s3_backend(settings, monkeypatch, tmp_path):
     try:
         yield storages["private"], client, bucket
     finally:
-        # Only the random bucket created above is touched; never clear a supplied bucket.
-        objects = client.list_objects_v2(Bucket=bucket).get("Contents", [])
-        for obj in objects:
+        # Only the random bucket created above is touched. Remove explicit versions
+        # before dropping the bucket; regular DELETE creates delete markers on
+        # versioned buckets and would leave the test fixture behind.
+        for page in client.get_paginator("list_object_versions").paginate(Bucket=bucket):
+            for obj in page.get("Versions", []) + page.get("DeleteMarkers", []):
+                client.delete_object(
+                    Bucket=bucket, Key=obj["Key"], VersionId=obj["VersionId"]
+                )
+        for obj in client.list_objects_v2(Bucket=bucket).get("Contents", []):
             client.delete_object(Bucket=bucket, Key=obj["Key"])
         client.delete_bucket(Bucket=bucket)
         client.close()
@@ -100,3 +109,44 @@ def test_s3_tampered_signature_does_not_grant_access(s3_backend, user):
     with pytest.raises(HTTPError) as denied:
         urlopen(tampered, timeout=5)
     assert denied.value.code == 403
+
+
+def test_dr_s3_versioned_recovery_matches_privatefile_metadata(s3_backend, user, tmp_path):
+    """Exercise actual version-pinned reads and Django DB metadata on disposable S3."""
+    _, client, bucket = s3_backend
+    client.put_bucket_versioning(
+        Bucket=bucket, VersioningConfiguration={"Status": "Enabled"}
+    )
+    record = services.upload_file(
+        actor=user, upload=SimpleUploadedFile("dr.txt", b"original recovery bytes")
+    )
+    db_manifest = tmp_path / "db-file-metadata.json"
+    call_command("export_dr_file_manifest", output=db_manifest)
+    import json
+
+    db_files = json.loads(db_manifest.read_text(encoding="utf-8"))["files"]
+    original_inventory = dr_s3.inventory(client, bucket)
+    assert len(original_inventory["objects"]) == 1
+    assert original_inventory["objects"][0]["key"] == record.object_key
+    assert original_inventory["objects"][0]["version_id"]
+    assert dr_reconcile.compare(db_files, original_inventory["objects"])["ok"]
+    dr_s3.verify(client, bucket, original_inventory)
+
+    # Overwrite only the disposable fixture object to simulate a later generation.
+    client.put_object(Bucket=bucket, Key=record.object_key, Body=b"changed bytes")
+
+    # The pinned historical version must still be independently recoverable.
+    dr_s3.verify(client, bucket, original_inventory)
+    current = dr_s3.inventory(client, bucket)
+    assert current["objects"][0]["version_id"] != original_inventory["objects"][0]["version_id"]
+    mismatch = dr_reconcile.compare(db_files, current["objects"])
+    assert mismatch["mismatched"] == [record.object_key]
+    assert not mismatch["ok"]
+
+
+def test_dr_s3_inventory_rejects_unversioned_disposable_bucket(s3_backend):
+    _, client, bucket = s3_backend
+    key = "objects/ab/" + "ab" * 16
+    client.put_object(Bucket=bucket, Key=key, Body=b"test")
+    with pytest.raises(ValueError, match="Versioned"):
+        dr_s3.inventory(client, bucket)
