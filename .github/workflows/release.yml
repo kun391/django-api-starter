@@ -54,7 +54,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [runtime, runtime-async, runtime-storage, runtime-full]
+        variant: [runtime, runtime-async, runtime-storage, runtime-telemetry, runtime-full]
     env:
       SOURCE_SHA: ${{ needs.verify.outputs.sha }}
       VERSION: ${{ needs.verify.outputs.version }}
