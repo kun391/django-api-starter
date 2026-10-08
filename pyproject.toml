@@ -31,8 +31,6 @@ telemetry = [
     "opentelemetry-api>=1.45,<1.46",
     "opentelemetry-sdk>=1.45,<1.46",
     "opentelemetry-exporter-otlp-proto-http>=1.45,<1.46",
-    "opentelemetry-instrumentation-celery>=0.66b0,<0.67",
-    "opentelemetry-instrumentation-psycopg2>=0.66b0,<0.67",
 ]
 
 [dependency-groups]
