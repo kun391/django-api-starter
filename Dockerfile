@@ -30,10 +30,15 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --extra storage --no-install-project
 
+FROM uv-base AS telemetry-deps
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --extra telemetry --no-install-project
+
 FROM uv-base AS full-deps
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --extra async --extra storage --no-install-project
+    uv sync --locked --no-dev --extra async --extra storage --extra telemetry --no-install-project
 
 # Static collection is offline and needs no real runtime secret, DB or bucket.
 FROM prod-deps AS static-build
@@ -79,6 +84,10 @@ CMD ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
 
 FROM runtime-base AS runtime-storage
 COPY --from=storage-deps /app/.venv /app/.venv
+CMD ["gunicorn", "--config", "config/gunicorn.py", "apps.core.wsgi:application"]
+
+FROM runtime-base AS runtime-telemetry
+COPY --from=telemetry-deps /app/.venv /app/.venv
 CMD ["gunicorn", "--config", "config/gunicorn.py", "apps.core.wsgi:application"]
 
 FROM runtime-base AS runtime-full
