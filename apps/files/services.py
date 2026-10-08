@@ -1,6 +1,7 @@
 """Private file lifecycle, with a durable manifest before non-transactional I/O."""
 
 import logging
+import time
 from datetime import timedelta
 from hashlib import sha256
 from tempfile import SpooledTemporaryFile
@@ -100,7 +101,7 @@ def upload_file(*, actor, upload, purpose="document", replace_id=None):
             sha256=validated.sha256,
             cleanup_after=timezone.now() + timedelta(seconds=pending_seconds),
         )
-    storage_started = timezone.now()
+    storage_started = time.perf_counter()
     try:
         try:
             name = backend.save(record.object_key, ContentFile(validated.data))
@@ -143,7 +144,7 @@ def upload_file(*, actor, upload, purpose="document", replace_id=None):
     )
     histogram_record(
         "app.storage.operation.duration",
-        (timezone.now() - storage_started).total_seconds(),
+        time.perf_counter() - storage_started,
         unit="s",
         attributes={"operation": "write", "outcome": "success"},
     )
