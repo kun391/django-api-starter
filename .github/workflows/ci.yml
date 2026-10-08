@@ -97,7 +97,7 @@ jobs:
           uv run python scripts/check_migration_safety.py \
             --base "$BASE_SHA" "${args[@]}"
       - name: Private-file DR inventory safety tests
-        run: uv run pytest tests/test_dr_private_files.py
+        run: uv run pytest tests/test_dr_private_files.py tests/test_dr_recovery.py
       - name: Tests
         run: uv run pytest
       - name: Compose config
