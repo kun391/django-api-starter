@@ -3,6 +3,7 @@
 Output is a verification manifest, not a database backup. No writes are made.
 """
 import json
+import os
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
@@ -37,8 +38,6 @@ class Command(BaseCommand):
                 for item in records
             ],
         }
-        import os
-
         descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as output:
             json.dump(data, output, indent=2)
