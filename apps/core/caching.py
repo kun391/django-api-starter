@@ -150,6 +150,11 @@ def cache_aside(
         return _load_json(load)[0]
 
     if generation is None:
+        telemetry.counter_add(
+            "app.cache.operations",
+            1,
+            attributes={"operation": "read", "outcome": "miss"},
+        )
         return _load_json(load)[0]
 
     if isinstance(encoded, str) and len(encoded.encode()) <= policy.max_bytes:
