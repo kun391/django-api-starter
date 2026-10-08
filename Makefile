@@ -206,12 +206,12 @@ health:
 	@echo -e "$(GREEN)Checking service health...$(NC)"
 	@curl -f http://localhost:5001/health/ || echo -e "$(RED)Web service is down$(NC)"
 
-# Backup and restore
+# Production backup and disaster recovery must follow docs/disaster-recovery.md
+.PHONY: backup restore
 backup:
-	@echo -e "$(GREEN)Creating database backup...$(NC)"
-	$(COMPOSE_EXEC) db pg_dump -U postgres django_api > backup_$(shell date +%Y%m%d_%H%M%S).sql
+	@echo "Use scripts/dr_postgres.py backup with a private destination; see docs/disaster-recovery.md" >&2
+	@exit 2
 
 restore:
-	@echo -e "$(RED)Warning: This will overwrite existing data!$(NC)"
-	@read -p "Enter backup file name: " backup_file; \
-	$(COMPOSE_EXEC) db psql -U postgres django_api < $$backup_file
+	@echo "Unsafe in-place restore disabled. See docs/disaster-recovery.md for isolated DR drills." >&2
+	@exit 2
