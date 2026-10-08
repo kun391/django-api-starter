@@ -62,6 +62,22 @@ X_FRAME_OPTIONS = "DENY"
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_EAGER_PROPAGATES = False
 
+TELEMETRY_ENVIRONMENT = config("TELEMETRY_ENVIRONMENT", default="production")
+TELEMETRY_OTLP_ENDPOINT = config("OTEL_EXPORTER_OTLP_ENDPOINT", default="")
+if TELEMETRY_ENABLED:
+    if TELEMETRY_EXPORTER != "otlp":
+        raise ImproperlyConfigured(
+            "Production telemetry requires TELEMETRY_EXPORTER=otlp."
+        )
+    if not TELEMETRY_OTLP_ENDPOINT.startswith(("http://", "https://")):
+        raise ImproperlyConfigured(
+            "Production OTEL_EXPORTER_OTLP_ENDPOINT must be an http(s) URL."
+        )
+    if not TELEMETRY_SERVICE_NAME.strip():
+        raise ImproperlyConfigured(
+            "Production TELEMETRY_SERVICE_NAME must be non-empty."
+        )
+
 SENTRY_DSN = config("SENTRY_DSN", default="")
 if SENTRY_DSN:
     sentry_sdk.init(
