@@ -17,7 +17,7 @@ from django.utils import timezone
 
 from apps.core.models import OutboxEvent
 from apps.core.observability import get_request_id
-from apps.core.telemetry import inject_trace_context, span
+from apps.core.telemetry import counter_add, inject_trace_context, span
 
 _TOPIC_RE = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+){1,15}$")
 _HANDLERS: dict[str, Callable[[dict[str, Any]], None]] = {}
@@ -170,6 +170,11 @@ def claim_outbox_batch(
 
 
 def _finish_success(claimed: ClaimedEvent) -> None:
+    counter_add(
+        "app.queue.delivery.results",
+        1,
+        attributes={"queue": "outbox", "outcome": "success"},
+    )
     OutboxEvent.objects.filter(
         pk=claimed.event_id,
         lock_token=claimed.lock_token,
@@ -184,6 +189,11 @@ def _finish_success(claimed: ClaimedEvent) -> None:
 
 
 def _finish_failure(claimed: ClaimedEvent, error: Exception) -> None:
+    counter_add(
+        "app.queue.delivery.results",
+        1,
+        attributes={"queue": "outbox", "outcome": "failure"},
+    )
     max_attempts = getattr(settings, "OUTBOX_MAX_ATTEMPTS", 10)
     base_seconds = getattr(settings, "OUTBOX_RETRY_BASE_SECONDS", 5)
     max_seconds = getattr(settings, "OUTBOX_RETRY_MAX_SECONDS", 3600)
