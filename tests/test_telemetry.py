@@ -10,11 +10,12 @@ from django.db import transaction
 pytest.importorskip("opentelemetry.sdk")
 
 from apps.core import telemetry
-from apps.core.models import OutboxEvent
 from apps.core.observability import JsonFormatter
 from apps.core.outbox import process_outbox_batch, record_outbox_event
 from apps.notifications.models import NotificationDelivery
-from apps.notifications.services import process_delivery_batch as process_notification_batch
+from apps.notifications.services import (
+    process_delivery_batch as process_notification_batch,
+)
 from apps.operations.services import operations_snapshot
 from apps.organizations.models import Organization, OrganizationMembership
 from apps.webhooks.models import WebhookDelivery, WebhookSubscription
