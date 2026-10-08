@@ -131,3 +131,42 @@ least two operators and run quarterly drills plus after schema/storage changes.
 - Restore refuses non-`dr_` target, wrong confirmation and an existing target.
 - An isolated restore drill demonstrates a recoverable application and private files.
 - External storage retention, immutability and key recovery are verified **outside** this repo.
+
+## Database + S3 reconciliation
+
+Use an **isolated restored database** and separately recovered S3 bucket. Never
+run external deliveries, notifications or retention workers during the audit.
+
+1. From the restored environment, export PrivateFile states using
+   `python manage.py export_dr_file_manifest --output /secure/db-files.json`.
+2. For filesystem recovery, use the Part 3 inventory (the output object entries
+   match the reconciliation input contract).
+3. For S3, use a private, independently restored **versioned** bucket:
+   `python scripts/dr_s3.py --bucket isolated-dr --output /secure/s3-files.json`.
+   This hashes GET bodies using the returned version identifier; the script
+   does not use ETag as a checksum and never modifies bucket contents.
+4. Audit with
+   `python scripts/dr_reconcile.py --database-manifest /secure/db-files.json --objects-manifest /secure/s3-files.json`.
+   A nonzero exit indicates missing or modified READY files, or invalid manifests.
+   Non-READY orphaned objects are reported for human review, not automatically
+   deleted; pending uploads and tombstones can legitimately have objects.
+
+S3 inventory verification:
+`python scripts/dr_s3.py --bucket isolated-dr --verify /secure/s3-files.json`.
+Bucket must have versioning enabled before objects are written. The inventory is
+not an immutable copy of object bytes: ensure the independent backup contains the
+pinned versions and its identity/retention is protected. For cross-provider
+restores, version identifiers are provider-specific and must be remapped under
+an explicit restore process. S3 list/read operations may race with writes; take
+a consistent versioned snapshot or quiesce writers before capture.
+
+### Operational release criteria, not supplied by this starter
+
+- Test offsite backup with encrypted, immutable/locked copies in another failure
+  domain; use independent access credentials, key custody and expiry protection.
+- Select and enforce retention, backup frequency and escalation via an operator
+  scheduler; do not embed vendor credentials in GitHub CI.
+- Capture synchronized database and file recovery points. Logical dump plus
+  independent bucket listing without quiescence does **not** guarantee consistency.
+- Complete a real isolated DR recovery including authentication, authorization,
+  private file downloads and safe outbox replay before assigning measured RPO/RTO.

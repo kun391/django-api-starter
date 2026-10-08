@@ -6,10 +6,10 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import stat
 import sys
+from pathlib import Path
 
 
 def digest(path: Path) -> str:
