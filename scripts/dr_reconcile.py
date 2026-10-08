@@ -6,7 +6,6 @@ No upload, delete, retention or bucket mutation is performed.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 from pathlib import Path
