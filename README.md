@@ -259,6 +259,14 @@ history. Retention is disabled by default for audit, outbox, webhook,
 notification and private-file tombstone history; operators must choose policy
 before enabling deletion.
 
+## Resilience and failure semantics (Phase 22)
+
+[Phase 22 guide](docs/resilience.md) defines and tests dependency failure
+boundaries: PostgreSQL readiness, cache fail-open behavior, private-storage
+compensation, leased worker crash recovery, downstream retry isolation and
+at-least-once fan-out idempotency. CI has a dedicated resilience gate in addition
+to the existing Redis/S3 integration jobs.
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:
