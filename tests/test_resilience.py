@@ -1,21 +1,19 @@
 import uuid
 from datetime import timedelta
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from django.db import transaction
-from unittest.mock import patch
 from django.utils import timezone
 
 from apps.core import outbox
 from apps.core.models import OutboxEvent
 from apps.notifications.models import NotificationDelivery
-from apps.organizations.models import OrganizationMembership
 from apps.notifications.services import (
     claim_delivery_batch as claim_notification_batch,
 )
 from apps.notifications.services import process_delivery_batch as process_notification_batch
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationMembership
 from apps.webhooks.models import WebhookDelivery, WebhookSubscription
 from apps.webhooks.services import claim_delivery_batch as claim_webhook_batch
 from apps.webhooks.services import process_delivery_batch as process_webhook_batch
