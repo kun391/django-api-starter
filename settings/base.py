@@ -55,6 +55,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "apps.core.observability.RequestIdMiddleware",
+    "apps.core.observability.TelemetryMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -315,6 +316,28 @@ SPECTACULAR_SETTINGS = {
         "apps.core.api.schema.add_api_contract",
     ],
 }
+
+TELEMETRY_ENABLED = config("TELEMETRY_ENABLED", default=False, cast=bool)
+TELEMETRY_EXPORTER = config("TELEMETRY_EXPORTER", default="otlp")
+TELEMETRY_SERVICE_NAME = config(
+    "TELEMETRY_SERVICE_NAME",
+    default="django-api-starter",
+)
+TELEMETRY_ENVIRONMENT = config("TELEMETRY_ENVIRONMENT", default="development")
+TELEMETRY_OTLP_ENDPOINT = config(
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    default="http://127.0.0.1:4318",
+)
+TELEMETRY_TRACE_SAMPLE_RATE = config(
+    "TELEMETRY_TRACE_SAMPLE_RATE",
+    default=0.1,
+    cast=float,
+)
+TELEMETRY_METRIC_EXPORT_INTERVAL_MS = config(
+    "TELEMETRY_METRIC_EXPORT_INTERVAL_MS",
+    default=60000,
+    cast=int,
+)
 
 LOG_LEVEL = config("LOG_LEVEL", default="INFO")
 
