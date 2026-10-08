@@ -27,6 +27,13 @@ storage = [
     "django-storages>=1.14,<2.0",
     "boto3>=1.34,<2.0",
 ]
+telemetry = [
+    "opentelemetry-api>=1.45,<1.46",
+    "opentelemetry-sdk>=1.45,<1.46",
+    "opentelemetry-exporter-otlp-proto-http>=1.45,<1.46",
+    "opentelemetry-instrumentation-celery>=0.66b0,<0.67",
+    "opentelemetry-instrumentation-psycopg2>=0.66b0,<0.67",
+]
 
 [dependency-groups]
 dev = [
@@ -94,6 +101,7 @@ module = [
     "django_filters.*",
     "rest_framework.*",
     "celery.*",
+    "opentelemetry.*",
 ]
 ignore_missing_imports = true
 
