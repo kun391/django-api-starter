@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib
 import time
+from collections.abc import Mapping
 from contextlib import contextmanager
 from typing import Any
 
@@ -169,7 +170,7 @@ def counter_add(
     name: str,
     amount: int | float = 1,
     *,
-    attributes: dict[str, object] | None = None,
+    attributes: Mapping[str, object] | None = None,
 ) -> None:
     if not enabled():
         return
@@ -181,7 +182,7 @@ def histogram_record(
     value: int | float,
     *,
     unit: str = "1",
-    attributes: dict[str, object] | None = None,
+    attributes: Mapping[str, object] | None = None,
 ) -> None:
     if not enabled():
         return
@@ -196,7 +197,7 @@ def gauge_set(
     value: int | float,
     *,
     unit: str = "1",
-    attributes: dict[str, object] | None = None,
+    attributes: Mapping[str, object] | None = None,
 ) -> None:
     if not enabled():
         return
@@ -210,7 +211,7 @@ def gauge_set(
 def span(
     name: str,
     *,
-    attributes: dict[str, object] | None = None,
+    attributes: Mapping[str, object] | None = None,
     carrier: dict[str, str] | None = None,
     kind: str = "internal",
 ):
