@@ -157,6 +157,49 @@ jobs:
             tests/test_private_files.py::test_deletion_retry_replay_and_error_hygiene
 
 
+  telemetry:
+    name: Optional OpenTelemetry integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: django_api
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d django_api"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DJANGO_SETTINGS_MODULE: settings.test
+      POSTGRES_DB: django_api
+      POSTGRES_USER: postgres
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: latest-known
+          enable-cache: true
+      - name: Sync telemetry dependencies
+        run: uv sync --locked --extra telemetry --group dev
+      - name: Audit telemetry dependencies
+        run: uv run --extra telemetry pip-audit --strict
+      - name: Telemetry integration
+        run: uv run --extra telemetry pytest tests/test_telemetry.py
+
+
   production-smoke:
     name: Production smoke
     runs-on: ubuntu-latest

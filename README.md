@@ -60,14 +60,18 @@ uv sync --locked --extra async --group dev
 # Object storage integrations
 uv sync --locked --extra storage --group dev
 
+# OpenTelemetry traces/metrics
+uv sync --locked --extra telemetry --group dev
+
 # Combined capabilities
-uv sync --locked --extra async --extra storage --group dev
+uv sync --locked --extra async --extra storage --extra telemetry --group dev
 ```
 
 Available extras:
 
 - `async`: Celery and Redis client
 - `storage`: django-storages and boto3
+- `telemetry`: OpenTelemetry SDK + OTLP/HTTP exporter
 
 ## Docker Compose
 
@@ -98,16 +102,18 @@ runtime secrets and services.
 docker build --target runtime -t django-api-starter .
 docker build --target runtime-async -t django-api-starter-async .
 docker build --target runtime-storage -t django-api-starter-storage .
+docker build --target runtime-telemetry -t django-api-starter-telemetry .
 docker build --target runtime-full -t django-api-starter-full .
 
-# Disposable PostgreSQL + real HTTP smoke for all four non-root images:
+# Disposable PostgreSQL + real HTTP smoke for all five non-root images:
 bash scripts/smoke_production.sh
 ```
 
 Runtime images contain offline-collected static assets, default to production
 settings, and need explicit strong secrets/hosts and verified PostgreSQL TLS.
 They contain no uv, compiler, Git, PostgreSQL CLI, debug toolbar or test tooling.
-`runtime-full` supports S3-backed workers or an API combining S3 and Redis cache.
+`runtime-telemetry` adds only the optional OTel SDK/exporter. `runtime-full`
+combines async, storage and telemetry capabilities.
 
 Release steps are explicit: preflight, migration plan, serialized forward
 migration, then application admission. No migration runs on web/worker startup.
@@ -267,6 +273,14 @@ compensation, leased worker crash recovery, downstream retry isolation and
 at-least-once fan-out idempotency. CI has a dedicated resilience gate in addition
 to the existing Redis/S3 integration jobs.
 
+## OpenTelemetry and metrics (Phase 23)
+
+[Phase 23 guide](docs/telemetry.md) adds opt-in OpenTelemetry traces and
+low-cardinality metrics with OTLP/HTTP export. The base install remains
+dependency-free from OTel; `runtime-telemetry` and `runtime-full` contain the
+optional SDK. Trace context follows HTTP -> outbox -> webhook/notification
+workers without exposing it to external webhook bodies or email templates.
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:
@@ -281,9 +295,10 @@ uv run python scripts/check_architecture.py
 uv run pytest
 ```
 
-CI runs the minimal PostgreSQL full suite, real Redis and S3-compatible integration,
-and production-container smoke in separate jobs. The minimal job needs neither
-Redis nor S3. The container job builds and exercises all four runtime variants.
+CI runs the minimal PostgreSQL full suite, resilience contracts, real Redis,
+optional OpenTelemetry, S3-compatible integration and production-container smoke
+in separate jobs. The minimal job needs neither Redis, S3 nor OpenTelemetry. The
+container job builds and exercises all five runtime variants.
 
 ## Useful Make targets
 

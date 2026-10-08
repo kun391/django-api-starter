@@ -1,6 +1,7 @@
 from celery import shared_task
 
 from apps.core.observability import log_batch_completed
+from apps.core.telemetry import span
 
 from .services import process_delivery_batch
 
@@ -12,6 +13,14 @@ from .services import process_delivery_batch
     reject_on_worker_lost=True,
 )
 def dispatch_webhooks() -> int:
-    processed = process_delivery_batch()
-    log_batch_completed(queue="webhooks", processed_count=processed)
-    return processed
+    with span(
+        "celery.webhooks.dispatch_webhooks",
+        kind="consumer",
+        attributes={
+            "messaging.system": "celery",
+            "messaging.destination.name": "webhooks.dispatch_webhooks",
+        },
+    ):
+        processed = process_delivery_batch()
+        log_batch_completed(queue="webhooks", processed_count=processed)
+        return processed

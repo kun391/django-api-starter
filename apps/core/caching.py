@@ -17,6 +17,8 @@ from django.core.cache import caches
 from django.db import connections, transaction
 from django.utils.crypto import salted_hmac
 
+from apps.core import telemetry
+
 type JSONValue = None | bool | int | float | str | list[JSONValue] | dict[str, JSONValue]
 
 logger = logging.getLogger(__name__)
@@ -140,17 +142,38 @@ def cache_aside(
         encoded = backend.get(entry_key) if generation is not None else None
     except Exception:
         _cache_warning("read")
+        telemetry.counter_add(
+            "app.cache.operations",
+            1,
+            attributes={"operation": "read", "outcome": "error"},
+        )
         return _load_json(load)[0]
 
     if generation is None:
+        telemetry.counter_add(
+            "app.cache.operations",
+            1,
+            attributes={"operation": "read", "outcome": "miss"},
+        )
         return _load_json(load)[0]
 
     if isinstance(encoded, str) and len(encoded.encode()) <= policy.max_bytes:
         try:
-            return cast(JSONValue, json.loads(encoded, parse_constant=_reject_constant))
+            value = cast(JSONValue, json.loads(encoded, parse_constant=_reject_constant))
+            telemetry.counter_add(
+                "app.cache.operations",
+                1,
+                attributes={"operation": "read", "outcome": "hit"},
+            )
+            return value
         except (ValueError, TypeError):
             pass  # Corrupt entries are recomputed, not returned to callers.
 
+    telemetry.counter_add(
+        "app.cache.operations",
+        1,
+        attributes={"operation": "read", "outcome": "miss"},
+    )
     value, encoded = _load_json(load)  # Outside cache exception handling; at most once.
     if len(encoded.encode()) <= policy.max_bytes:
         try:
@@ -158,6 +181,11 @@ def cache_aside(
             backend.set(entry_key, encoded, timeout=policy.ttl_seconds)
         except Exception:
             _cache_warning("write")
+            telemetry.counter_add(
+                "app.cache.operations",
+                1,
+                attributes={"operation": "write", "outcome": "error"},
+            )
     return value
 
 
@@ -165,6 +193,11 @@ def _invalidate(policy: CachePolicy, scope_key: str) -> None:
     try:
         caches[policy.alias].set(scope_key, uuid4().hex, timeout=86400)
     except Exception:
+        telemetry.counter_add(
+            "app.cache.operations",
+            1,
+            attributes={"operation": "invalidate", "outcome": "error"},
+        )
         # Never report a committed write as failed just because cache is down.
         # A stored entry expires by TTL, but this is NOT a strict freshness bound.
         _cache_warning("invalidate")

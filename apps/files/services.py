@@ -1,6 +1,7 @@
 """Private file lifecycle, with a durable manifest before non-transactional I/O."""
 
 import logging
+import time
 from datetime import timedelta
 from hashlib import sha256
 from tempfile import SpooledTemporaryFile
@@ -16,6 +17,7 @@ from django.utils.http import content_disposition_header
 
 from apps.core.outbox import record_outbox_event
 from apps.core.security import audit_security_event
+from apps.core.telemetry import counter_add, histogram_record
 
 from .models import PrivateFile
 from .validation import positive_setting, validate_upload
@@ -99,6 +101,7 @@ def upload_file(*, actor, upload, purpose="document", replace_id=None):
             sha256=validated.sha256,
             cleanup_after=timezone.now() + timedelta(seconds=pending_seconds),
         )
+    storage_started = time.perf_counter()
     try:
         try:
             name = backend.save(record.object_key, ContentFile(validated.data))
@@ -110,6 +113,11 @@ def upload_file(*, actor, upload, purpose="document", replace_id=None):
             # Only the external storage boundary is translated. DB, validation
             # and programming errors retain Django's normal error pipeline.
             logger.warning("private_file_storage_unavailable: write")
+            counter_add(
+                "app.storage.operations",
+                1,
+                attributes={"operation": "write", "outcome": "error"},
+            )
             raise FileStorageUnavailable() from None
         with transaction.atomic(durable=True):
             current = PrivateFile.objects.select_for_update().get(pk=record.pk)
@@ -129,6 +137,17 @@ def upload_file(*, actor, upload, purpose="document", replace_id=None):
     except Exception:
         _compensate(record.pk)
         raise
+    counter_add(
+        "app.storage.operations",
+        1,
+        attributes={"operation": "write", "outcome": "success"},
+    )
+    histogram_record(
+        "app.storage.operation.duration",
+        time.perf_counter() - storage_started,
+        unit="s",
+        attributes={"operation": "write", "outcome": "success"},
+    )
     audit_security_event("files.upload.succeeded", outcome="succeeded", actor_id=actor.pk)
     return current
 
@@ -169,7 +188,17 @@ def open_file(file_id, *, actor):
     except Exception:
         stream.close()
         logger.warning("private_file_storage_unavailable: read")
+        counter_add(
+            "app.storage.operations",
+            1,
+            attributes={"operation": "read", "outcome": "error"},
+        )
         raise FileStorageUnavailable() from None
+    counter_add(
+        "app.storage.operations",
+        1,
+        attributes={"operation": "read", "outcome": "success"},
+    )
     return record, stream
 
 
@@ -189,6 +218,11 @@ def download_url(file_id, *, actor):
         })
     except Exception:
         logger.warning("private_file_storage_unavailable: sign")
+        counter_add(
+            "app.storage.operations",
+            1,
+            attributes={"operation": "sign", "outcome": "error"},
+        )
         raise FileStorageUnavailable() from None
     return {"url": url, "expires_in": ttl}
 
@@ -201,7 +235,20 @@ def delete_stored_object(file_id):
     if record is None:
         return  # Replayed/invalid events never delete a READY or PENDING key.
     backend = storages["private"]
-    backend.delete(record.object_key)  # Idempotent; errors are retried by core outbox.
+    try:
+        backend.delete(record.object_key)  # Idempotent; errors are retried by core outbox.
+    except Exception:
+        counter_add(
+            "app.storage.operations",
+            1,
+            attributes={"operation": "delete", "outcome": "error"},
+        )
+        raise
+    counter_add(
+        "app.storage.operations",
+        1,
+        attributes={"operation": "delete", "outcome": "success"},
+    )
     # A crash before this update is safe: the next delivery deletes the same key.
     recheck = positive_setting("PRIVATE_FILE_RECHECK_SECONDS", 86400)
     now = timezone.now()

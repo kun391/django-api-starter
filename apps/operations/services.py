@@ -10,6 +10,7 @@ from django.db.models import Count, Min, Q
 from django.utils import timezone
 
 from apps.core.models import OutboxEvent
+from apps.core.telemetry import gauge_set
 from apps.notifications.models import NotificationDelivery
 from apps.webhooks.models import WebhookDelivery
 
@@ -140,6 +141,31 @@ def operations_snapshot() -> OperationsSnapshot:
         overall = "critical"
     elif "warning" in statuses:
         overall = "warning"
+    for queue_name, state in queues.items():
+        attributes = {"queue": queue_name}
+        gauge_set("app.queue.pending", state.pending, attributes=attributes)
+        gauge_set("app.queue.retrying", state.retrying, attributes=attributes)
+        gauge_set(
+            "app.queue.terminal_failures",
+            state.terminal_failures,
+            attributes=attributes,
+        )
+        gauge_set(
+            "app.queue.active_leases",
+            state.active_leases,
+            attributes=attributes,
+        )
+        gauge_set(
+            "app.queue.stale_leases",
+            state.stale_leases,
+            attributes=attributes,
+        )
+        gauge_set(
+            "app.queue.oldest_pending_age",
+            state.oldest_pending_age_seconds or 0,
+            unit="s",
+            attributes=attributes,
+        )
     return OperationsSnapshot(
         status=overall,
         generated_at=now.isoformat(),

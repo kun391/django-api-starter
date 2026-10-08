@@ -13,6 +13,7 @@ from django.db import models, transaction
 from django.utils import timezone
 
 from apps.core.audit import record_audit_event
+from apps.core.telemetry import capture_trace_context, counter_add, span
 
 from .models import NotificationDelivery, NotificationPreference
 from .provider import EmailProvider, get_email_provider
@@ -81,6 +82,18 @@ def preference_rows(*, user_id: int) -> list[dict[str, object]]:
     ]
 
 
+def _trace_context(envelope: dict[str, Any]) -> dict[str, str]:
+    metadata = envelope.get("metadata", {})
+    request_id = metadata.get("request_id")
+    base = {"request_id": request_id} if isinstance(request_id, str) and request_id else {}
+    captured = capture_trace_context(base)
+    return {
+        key: str(captured[key])
+        for key in ("traceparent", "tracestate", "request_id")
+        if isinstance(captured.get(key), str) and captured.get(key)
+    }
+
+
 def _dedupe_key(source_event_id, recipient_user_id: int) -> str:
     value = f"{source_event_id}:{recipient_user_id}:email".encode()
     return "event:" + hashlib.sha256(value).hexdigest()
@@ -131,6 +144,7 @@ def fanout_event(envelope: dict[str, Any]) -> int:
             "recipient_email": user.email,
             "template_slug": definition.template_slug,
             "template_context": context,
+            "trace_context": _trace_context(envelope),
         },
     )
     return int(created)
@@ -182,6 +196,11 @@ def claim_delivery_batch(*, batch_size: int | None = None) -> list[ClaimedDelive
 
 
 def _finish_success(claim: ClaimedDelivery) -> None:
+    counter_add(
+        "app.queue.delivery.results",
+        1,
+        attributes={"queue": "notifications", "outcome": "success"},
+    )
     now = timezone.now()
     NotificationDelivery.objects.filter(
         pk=claim.delivery_id,
@@ -197,6 +216,11 @@ def _finish_success(claim: ClaimedDelivery) -> None:
 
 
 def _finish_failure(claim: ClaimedDelivery, error: Exception) -> None:
+    counter_add(
+        "app.queue.delivery.results",
+        1,
+        attributes={"queue": "notifications", "outcome": "failure"},
+    )
     max_attempts = getattr(settings, "NOTIFICATION_MAX_ATTEMPTS", 8)
     base_seconds = getattr(settings, "NOTIFICATION_RETRY_BASE_SECONDS", 30)
     max_seconds = getattr(settings, "NOTIFICATION_RETRY_MAX_SECONDS", 3600)
@@ -272,22 +296,47 @@ def process_delivery_batch(
                 locked_until=None,
                 lock_token=None,
             )
+            counter_add(
+                "app.queue.delivery.results",
+                1,
+                attributes={"queue": "notifications", "outcome": "cancelled"},
+            )
             continue
 
-        try:
-            rendered = render_notification(
-                delivery.template_slug,
-                delivery.template_context,
-            )
-            sender.send_email(
-                subject=rendered.subject,
-                body=rendered.body,
-                recipient=delivery.recipient_email,
-            )
-        except Exception as exc:
-            _finish_failure(claim, exc)
-            continue
+        trace_context = delivery.trace_context or {}
+        carrier = {
+            key: str(value)
+            for key, value in trace_context.items()
+            if key in {"traceparent", "tracestate"} and isinstance(value, str)
+        }
+        attributes = {
+            "messaging.system": "email",
+            "messaging.message.id": str(delivery.source_event_id),
+        }
+        request_id = trace_context.get("request_id")
+        if isinstance(request_id, str) and request_id:
+            attributes["app.request_id"] = request_id
 
-        _finish_success(claim)
-        successful += 1
+        with span(
+            "notification.deliver",
+            carrier=carrier,
+            kind="client",
+            attributes=attributes,
+        ):
+            try:
+                rendered = render_notification(
+                    delivery.template_slug,
+                    delivery.template_context,
+                )
+                sender.send_email(
+                    subject=rendered.subject,
+                    body=rendered.body,
+                    recipient=delivery.recipient_email,
+                )
+            except Exception as exc:
+                _finish_failure(claim, exc)
+                continue
+
+            _finish_success(claim)
+            successful += 1
     return successful

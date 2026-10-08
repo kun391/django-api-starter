@@ -4,6 +4,7 @@ from celery import shared_task
 
 from apps.core.observability import log_batch_completed
 from apps.core.outbox import process_outbox_batch
+from apps.core.telemetry import span
 
 
 @shared_task(
@@ -19,6 +20,14 @@ def dispatch_outbox() -> int:
     fail the scheduler task itself.
     """
 
-    processed = process_outbox_batch()
-    log_batch_completed(queue="outbox", processed_count=processed)
-    return processed
+    with span(
+        "celery.core.dispatch_outbox",
+        kind="consumer",
+        attributes={
+            "messaging.system": "celery",
+            "messaging.destination.name": "core.dispatch_outbox",
+        },
+    ):
+        processed = process_outbox_batch()
+        log_batch_completed(queue="outbox", processed_count=processed)
+        return processed

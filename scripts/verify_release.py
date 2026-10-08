@@ -9,7 +9,14 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-REQUIRED_JOBS = {"test", "Optional Redis integration", "Private storage integration", "Production smoke"}
+REQUIRED_JOBS = {
+    "test",
+    "Resilience contracts",
+    "Optional Redis integration",
+    "Optional OpenTelemetry integration",
+    "Private storage integration",
+    "Production smoke",
+}
 
 
 def validate_inputs(sha, version, repo, ref):

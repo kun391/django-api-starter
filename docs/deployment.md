@@ -29,10 +29,12 @@ never a runtime settings module. No production secrets are passed to Docker buil
 | `runtime` | None | Gunicorn API |
 | `runtime-async` | async (Celery + Redis client) | Celery worker |
 | `runtime-storage` | storage (django-storages + boto3) | Gunicorn API |
-| `runtime-full` | async + storage | Gunicorn API |
+| `runtime-telemetry` | telemetry (OpenTelemetry SDK + OTLP/HTTP) | Gunicorn API |
+| `runtime-full` | async + storage + telemetry | Gunicorn API |
 
-Use `runtime-full` for an S3-backed Celery worker, or an API using both S3 and
-Redis cache. Compose explicitly selects the web/worker/beat command, so the
+Use `runtime-telemetry` for a web process that only needs OTLP telemetry.
+Use `runtime-full` for an S3-backed Celery worker with telemetry, or an API
+combining S3, Redis cache and telemetry. Compose explicitly selects the web/worker/beat command, so the
 same appropriate image/digest can be used for all roles. Installing an extra
 does not require starting every associated service. The minimal image contains
 no uv, test tooling, compiler or optional service client.
@@ -47,14 +49,18 @@ are a starting point, not a benchmark-derived capacity claim.
 
 ## Build, verify, publish, promote
 
-The PR/main `CI` workflow has four required checks:
+The PR/main `CI` workflow has six required checks:
 
 - `test`: locked dependencies, Django/migration checks, audits, Ruff/MyPy,
   architecture, schema, full PostgreSQL tests, Compose and shell validation.
+- `Resilience contracts`: explicit dependency-failure and leased-worker recovery
+  semantics.
 - `Optional Redis integration`: cache correctness against real Redis.
+- `Optional OpenTelemetry integration`: trace propagation, privacy/cardinality
+  rules and telemetry-extra dependency audit.
 - `Private storage integration`: private file behavior against a disposable
   real S3-compatible server (the existing CI fixture, not a production choice).
-- `Production smoke`: build ALL four runtime targets and exercise them as
+- `Production smoke`: build ALL five runtime targets and exercise them as
   non-root/read-only containers against an isolated PostgreSQL database.
 
 Run the last gate on a development machine with Docker:
@@ -108,6 +114,27 @@ Archive approved manifests and previous known-good digests in the deployment
 record; GitHub artifacts expire after 90 days. Keep old registry objects for the
 rollback window. Re-run main CI when a previously verified commit needs a fresh
 dependency audit before publication.
+
+
+## OpenTelemetry deployment boundary
+
+Telemetry is optional and disabled by default. Use `runtime-telemetry` or
+`runtime-full` before setting `TELEMETRY_ENABLED=True`; enabling telemetry in
+an image without the optional extra fails clearly at startup instead of silently
+dropping signals.
+
+Configure a trusted OTLP/HTTP collector through
+`OTEL_EXPORTER_OTLP_ENDPOINT`. Collector credentials belong in runtime secret
+injection (for example standard `OTEL_EXPORTER_OTLP_HEADERS`), never image build
+arguments or committed env files.
+
+The application does not expose a public Prometheus endpoint and does not bundle
+a collector, Grafana or Tempo. Collector health is not folded into
+`/health/ready/`: PostgreSQL remains the API readiness dependency. A telemetry
+backend outage must not change business request outcomes.
+
+See [Phase 23 telemetry](telemetry.md) for signal names, trace propagation and
+cardinality/privacy constraints.
 
 ## Configure runtime and the trusted edge
 

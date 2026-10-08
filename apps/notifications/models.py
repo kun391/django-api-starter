@@ -41,6 +41,7 @@ class NotificationDelivery(models.Model):
     recipient_email = models.EmailField()
     template_slug = models.CharField(max_length=120)
     template_context = models.JSONField(default=dict)
+    trace_context = models.JSONField(null=True, blank=True)
     dedupe_key = models.CharField(max_length=128, unique=True)
     attempts = models.PositiveSmallIntegerField(default=0)
     next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)

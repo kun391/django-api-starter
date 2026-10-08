@@ -63,6 +63,7 @@ def test_proxy_trust_requires_explicit_opt_in():
     {"SECRET_KEY": "django-insecure-" + TEST_SECRET}, {"ALLOWED_HOSTS": ""},
     {"ALLOWED_HOSTS": "*"}, {"ALLOWED_HOSTS": "https://api.example.test"},
     {"POSTGRES_SSLMODE": "typo"}, {"WEBHOOK_SIGNING_MASTER_KEY": ""},
+    {"TELEMETRY_ENABLED": "True", "OTEL_EXPORTER_OTLP_ENDPOINT": ""},
 ])
 def test_unsafe_production_settings_fail_closed(overrides):
     result = load_settings(**overrides)
@@ -207,6 +208,13 @@ def test_release_workflow_never_publishes_from_pr_and_tests_before_push():
     assert workflow["permissions"] == {"contents": "read"}
     publish = workflow["jobs"]["publish"]
     assert publish["needs"] == "verify"
+    assert set(publish["strategy"]["matrix"]["variant"]) == {
+        "runtime",
+        "runtime-async",
+        "runtime-storage",
+        "runtime-telemetry",
+        "runtime-full",
+    }
     steps = publish["steps"]
     test_index = next(index for index, step in enumerate(steps) if "smoke_production.sh" in step.get("run", ""))
     login_index = next(index for index, step in enumerate(steps) if "docker login" in step.get("run", ""))

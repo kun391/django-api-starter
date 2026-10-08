@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from apps.core.models import OutboxEvent
 from apps.core.observability import get_request_id
+from apps.core.telemetry import counter_add, inject_trace_context, span
 
 _TOPIC_RE = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+){1,15}$")
 _HANDLERS: dict[str, Callable[[dict[str, Any]], None]] = {}
@@ -81,7 +82,7 @@ def record_outbox_event(
     if isinstance(version, bool) or not isinstance(version, int) or not 1 <= version <= 32767:
         raise ValueError("Outbox event version must be an integer between 1 and 32767.")
 
-    event_metadata = dict(metadata or {})
+    event_metadata = inject_trace_context(dict(metadata or {}))
     request_id = get_request_id()
     if request_id and "request_id" not in event_metadata:
         event_metadata["request_id"] = request_id
@@ -169,6 +170,11 @@ def claim_outbox_batch(
 
 
 def _finish_success(claimed: ClaimedEvent) -> None:
+    counter_add(
+        "app.queue.delivery.results",
+        1,
+        attributes={"queue": "outbox", "outcome": "success"},
+    )
     OutboxEvent.objects.filter(
         pk=claimed.event_id,
         lock_token=claimed.lock_token,
@@ -183,6 +189,11 @@ def _finish_success(claimed: ClaimedEvent) -> None:
 
 
 def _finish_failure(claimed: ClaimedEvent, error: Exception) -> None:
+    counter_add(
+        "app.queue.delivery.results",
+        1,
+        attributes={"queue": "outbox", "outcome": "failure"},
+    )
     max_attempts = getattr(settings, "OUTBOX_MAX_ATTEMPTS", 10)
     base_seconds = getattr(settings, "OUTBOX_RETRY_BASE_SECONDS", 5)
     max_seconds = getattr(settings, "OUTBOX_RETRY_MAX_SECONDS", 3600)
@@ -240,8 +251,23 @@ def process_outbox_batch(*, batch_size: int | None = None) -> int:
                 LookupError(f"No outbox handler registered for {topic!r}."),
             )
             continue
+        trace_carrier = {
+            key: str(value)
+            for key, value in claimed.envelope.get("metadata", {}).items()
+            if key in {"traceparent", "tracestate"} and isinstance(value, str)
+        }
         try:
-            handler(claimed.envelope)
+            with span(
+                "outbox.consume",
+                carrier=trace_carrier,
+                kind="consumer",
+                attributes={
+                    "messaging.system": "database",
+                    "messaging.destination.name": topic,
+                    "messaging.message.id": str(claimed.event_id),
+                },
+            ):
+                handler(claimed.envelope)
         except Exception as exc:
             _finish_failure(claimed, exc)
         else:

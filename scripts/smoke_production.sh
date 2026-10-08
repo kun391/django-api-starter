@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Disposable local Docker integration ONLY; never receives production credentials.
-# No arguments: build and exercise all four images. IMAGE VARIANT: test a built image.
+# No arguments: build and exercise all five images. IMAGE VARIANT: test a built image.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 tmp=$(mktemp -d)
@@ -20,7 +20,7 @@ cleanup() {
 }
 trap cleanup EXIT
 if [ "$#" -eq 0 ]; then
-    variants=(runtime runtime-async runtime-storage runtime-full)
+    variants=(runtime runtime-async runtime-storage runtime-telemetry runtime-full)
     for target in "${variants[@]}"; do
         docker build --target "$target" --build-arg "RELEASE_SHA=${GITHUB_SHA:-development}" \
             --build-arg RELEASE_VERSION=ci --tag "$prefix:$target" .
@@ -69,7 +69,7 @@ run() {
 first=true
 for variant in "${variants[@]}"; do
     image="${1:-$prefix:$variant}"
-    run python -c "import importlib.util, os, shutil; from pathlib import Path; assert os.getuid() == 10001; assert not os.access('/app/manage.py', os.W_OK); assert shutil.which('uv') is None; assert importlib.util.find_spec('pytest') is None; assert Path('/app/staticfiles/staticfiles.json').is_file(); assert bool(importlib.util.find_spec('celery')) == ('$variant' in ('runtime-async', 'runtime-full')); assert bool(importlib.util.find_spec('storages')) == ('$variant' in ('runtime-storage', 'runtime-full'))"
+    run python -c "import importlib.util, os, shutil; from pathlib import Path; assert os.getuid() == 10001; assert not os.access('/app/manage.py', os.W_OK); assert shutil.which('uv') is None; assert importlib.util.find_spec('pytest') is None; assert Path('/app/staticfiles/staticfiles.json').is_file(); assert bool(importlib.util.find_spec('celery')) == ('$variant' in ('runtime-async', 'runtime-full')); assert bool(importlib.util.find_spec('storages')) == ('$variant' in ('runtime-storage', 'runtime-full')); assert bool(importlib.util.find_spec('opentelemetry')) == ('$variant' in ('runtime-telemetry', 'runtime-full'))"
     if [ "$first" = true ]; then
         if run python manage.py release_check >"$tmp/preflight.log" 2>&1; then
             echo 'Preflight incorrectly accepted an unmigrated database.' >&2; exit 1

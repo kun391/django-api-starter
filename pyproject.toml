@@ -27,6 +27,11 @@ storage = [
     "django-storages>=1.14,<2.0",
     "boto3>=1.34,<2.0",
 ]
+telemetry = [
+    "opentelemetry-api>=1.45,<1.46",
+    "opentelemetry-sdk>=1.45,<1.46",
+    "opentelemetry-exporter-otlp-proto-http>=1.45,<1.46",
+]
 
 [dependency-groups]
 dev = [
