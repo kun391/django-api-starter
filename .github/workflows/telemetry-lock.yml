@@ -1,0 +1,28 @@
+name: Telemetry lock resolver
+
+on:
+  push:
+    branches: [feat/opentelemetry-metrics-foundation]
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: latest-known
+          enable-cache: false
+      - name: Resolve lockfile
+        run: uv lock
+      - name: Verify telemetry environment
+        run: uv sync --locked --extra telemetry --group dev
+      - name: Upload resolved lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase23-uv-lock
+          path: uv.lock
+          if-no-files-found: error
