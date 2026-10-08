@@ -5,7 +5,7 @@ on:
     branches: [feat/opentelemetry-metrics-foundation]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   resolve:
@@ -20,9 +20,14 @@ jobs:
         run: uv lock
       - name: Verify telemetry environment
         run: uv sync --locked --extra telemetry --group dev
-      - name: Upload resolved lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase23-uv-lock
-          path: uv.lock
-          if-no-files-found: error
+      - name: Commit resolved lockfile
+        run: |
+          if git diff --quiet -- uv.lock; then
+            echo "uv.lock is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git commit -m "chore: resolve telemetry dependency lock"
+          git push origin HEAD:feat/opentelemetry-metrics-foundation
