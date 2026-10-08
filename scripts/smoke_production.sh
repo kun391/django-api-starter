@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Disposable local Docker integration ONLY; never receives production credentials.
-# No arguments: build and exercise all four images. IMAGE VARIANT: test a built image.
+# No arguments: build and exercise all five images. IMAGE VARIANT: test a built image.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 tmp=$(mktemp -d)
