@@ -148,6 +148,24 @@ jobs:
       - name: Isolated backup, verify, restore, reject overwrites and corruption
         run: sh scripts/test_dr_postgres.sh
 
+  offsite-dr:
+    name: Encrypted offsite recovery roundtrip
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DR_CI_ISOLATED: "yes"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install restic
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y restic
+      - name: Encrypted backup, repository check and isolated restore
+        run: python3 scripts/test_dr_offsite_roundtrip.py
+
   resilience:
     name: Resilience contracts
     runs-on: ubuntu-latest
