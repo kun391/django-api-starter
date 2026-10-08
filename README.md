@@ -295,9 +295,10 @@ uv run python scripts/check_architecture.py
 uv run pytest
 ```
 
-CI runs the minimal PostgreSQL full suite, real Redis and S3-compatible integration,
-and production-container smoke in separate jobs. The minimal job needs neither
-Redis nor S3. The container job builds and exercises all four runtime variants.
+CI runs the minimal PostgreSQL full suite, resilience contracts, real Redis,
+optional OpenTelemetry, S3-compatible integration and production-container smoke
+in separate jobs. The minimal job needs neither Redis, S3 nor OpenTelemetry. The
+container job builds and exercises all five runtime variants.
 
 ## Useful Make targets
 
