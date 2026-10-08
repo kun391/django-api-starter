@@ -15,6 +15,7 @@ from django.http import Http404
 from django.utils import timezone
 
 from apps.core.audit import record_audit_event
+from apps.core.observability import get_request_id
 from apps.core.telemetry import capture_trace_context, counter_add, span
 from apps.organizations.access import require_roles, resolve_access
 
@@ -451,6 +452,10 @@ def replay_delivery(*, actor, organization_id, delivery_id):
         body = dict(original.body)
         body["id"] = str(new_id)
         body["replay_of"] = str(original.pk)
+        replay_trace = {}
+        request_id = get_request_id()
+        if request_id:
+            replay_trace["request_id"] = request_id
         replay = WebhookDelivery.objects.create(
             id=new_id,
             subscription=original.subscription,
@@ -458,6 +463,7 @@ def replay_delivery(*, actor, organization_id, delivery_id):
             event_topic=original.event_topic,
             event_version=original.event_version,
             body=body,
+            trace_context=capture_trace_context(replay_trace),
             dedupe_key=f"replay:{uuid.uuid4()}",
             replay_of_id=original.pk,
         )
