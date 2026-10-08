@@ -42,6 +42,7 @@ class WebhookDelivery(models.Model):
     event_topic = models.CharField(max_length=200)
     event_version = models.PositiveSmallIntegerField(default=1)
     body = models.JSONField()
+    trace_context = models.JSONField(null=True, blank=True)
     dedupe_key = models.CharField(max_length=128, unique=True)
     replay_of_id = models.UUIDField(null=True, blank=True)
     attempts = models.PositiveSmallIntegerField(default=0)
