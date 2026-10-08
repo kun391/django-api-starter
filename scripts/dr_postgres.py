@@ -10,11 +10,11 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from pathlib import Path
 
 
 def run(args: list[str]) -> None:
@@ -33,7 +33,7 @@ def backup(directory: Path, database: str) -> None:
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     if directory.is_symlink() or directory.stat().st_mode & 0o077:
         raise ValueError("Backup directory must be private (mode 0700) and not a symlink")
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     prefix = f"{database}-{timestamp}-{os.getpid()}"
     archive = directory / f"{prefix}.dump"
     manifest = directory / f"{prefix}.json"
@@ -45,7 +45,7 @@ def backup(directory: Path, database: str) -> None:
         details = {
             "schema_version": 1,
             "database": database,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "archive_name": archive.name,
             "sha256": sha256(archive),
             "bytes": archive.stat().st_size,
