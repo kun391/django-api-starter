@@ -170,3 +170,29 @@ a consistent versioned snapshot or quiesce writers before capture.
   independent bucket listing without quiescence does **not** guarantee consistency.
 - Complete a real isolated DR recovery including authentication, authorization,
   private file downloads and safe outbox replay before assigning measured RPO/RTO.
+
+## Encrypted offsite bundle with restic
+
+The operator-only script `scripts/dr_offsite.py` validates a staged recovery
+bundle before passing it to restic, which provides authenticated encryption.
+The script never automatically initializes, prunes, or deletes backups.
+
+A staged bundle must contain `recovery-point.json` with a unique recovery ID,
+the PostgreSQL backup manifest/archive, the filesystem inventory manifest,
+and corresponding `private-files/objects/` bytes. Bundle validation checks
+object checksums and refuses unexpected files or symlinks. This is not proof
+of atomicity: operators must pause all writers and take a consistent database
+and file snapshot before preparing the bundle.
+
+Use `validate --bundle` first. Set RESTIC_REPOSITORY to a separately managed
+offsite destination and RESTIC_PASSWORD_FILE to a restricted local credential.
+For upload, run `backup --bundle ... --confirm FROZEN:<recovery-id>`.
+Run `check` to verify the encrypted backup repository. Recovery requires an
+explicit snapshot identifier and a new, empty isolated restore location through
+`restore --snapshot ... --target ... --confirm RESTORE:<snapshot-id>`.
+Never use the latest alias as the source of a DR restore.
+
+The encrypted copy is not automatically immutable or retained. Configure
+provider-side WORM/Object Lock where available, separate operator permissions,
+retention and alerting. Audit restoration regularly, measure RPO/RTO, and
+maintain offline access to encryption keys. No CI job uses real offsite secrets.
