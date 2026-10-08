@@ -13,7 +13,7 @@ from django.db import models, transaction
 from django.utils import timezone
 
 from apps.core.audit import record_audit_event
-from apps.core.telemetry import counter_add, span
+from apps.core.telemetry import capture_trace_context, counter_add, span
 
 from .models import NotificationDelivery, NotificationPreference
 from .provider import EmailProvider, get_email_provider
@@ -84,10 +84,13 @@ def preference_rows(*, user_id: int) -> list[dict[str, object]]:
 
 def _trace_context(envelope: dict[str, Any]) -> dict[str, str]:
     metadata = envelope.get("metadata", {})
+    request_id = metadata.get("request_id")
+    base = {"request_id": request_id} if isinstance(request_id, str) and request_id else {}
+    captured = capture_trace_context(base)
     return {
-        key: str(metadata[key])
+        key: str(captured[key])
         for key in ("traceparent", "tracestate", "request_id")
-        if isinstance(metadata.get(key), str) and metadata.get(key)
+        if isinstance(captured.get(key), str) and captured.get(key)
     }
 
 
