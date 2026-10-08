@@ -25,3 +25,4 @@ rules:
   - upload manifests commit before storage I/O
   - replacement creates a new immutable ID and retires the old one
   - deletion and its outbox event commit together
+  - verified deletion records the first deleted_at timestamp for later retention

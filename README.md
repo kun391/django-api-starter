@@ -251,6 +251,14 @@ Background Celery tasks emit low-cardinality structured completion events throug
 the existing JSON logger. See
 [apps/operations/README.md](apps/operations/README.md).
 
+## Data lifecycle and retention (Phase 21)
+
+[Phase 21 guide](apps/retention/README.md) adds a dry-run-first, bounded retention
+orchestrator for expired replay/throttle state and explicitly configured terminal
+history. Retention is disabled by default for audit, outbox, webhook,
+notification and private-file tombstone history; operators must choose policy
+before enabling deletion.
+
 ## Testing and quality
 
 The same gates used in CI can be run locally:
