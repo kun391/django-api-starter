@@ -69,7 +69,7 @@ run() {
 first=true
 for variant in "${variants[@]}"; do
     image="${1:-$prefix:$variant}"
-    run python -c "import importlib.util, os, shutil; from pathlib import Path; assert os.getuid() == 10001; assert not os.access('/app/manage.py', os.W_OK); assert shutil.which('uv') is None; assert importlib.util.find_spec('pytest') is None; assert Path('/app/staticfiles/staticfiles.json').is_file(); assert bool(importlib.util.find_spec('celery')) == ('$variant' in ('runtime-async', 'runtime-full')); assert bool(importlib.util.find_spec('storages')) == ('$variant' in ('runtime-storage', 'runtime-full')); assert bool(importlib.util.find_spec('opentelemetry.sdk')) == ('$variant' in ('runtime-telemetry', 'runtime-full'))"
+    run python -c "import importlib.util, os, shutil; from pathlib import Path; assert os.getuid() == 10001; assert not os.access('/app/manage.py', os.W_OK); assert shutil.which('uv') is None; assert importlib.util.find_spec('pytest') is None; assert Path('/app/staticfiles/staticfiles.json').is_file(); assert bool(importlib.util.find_spec('celery')) == ('$variant' in ('runtime-async', 'runtime-full')); assert bool(importlib.util.find_spec('storages')) == ('$variant' in ('runtime-storage', 'runtime-full')); assert bool(importlib.util.find_spec('opentelemetry')) == ('$variant' in ('runtime-telemetry', 'runtime-full'))"
     if [ "$first" = true ]; then
         if run python manage.py release_check >"$tmp/preflight.log" 2>&1; then
             echo 'Preflight incorrectly accepted an unmigrated database.' >&2; exit 1
