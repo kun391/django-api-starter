@@ -10,9 +10,9 @@ from django.db.models import Count, Min, Q
 from django.utils import timezone
 
 from apps.core.models import OutboxEvent
+from apps.core.telemetry import gauge_set
 from apps.notifications.models import NotificationDelivery
 from apps.webhooks.models import WebhookDelivery
-from apps.core.telemetry import gauge_set
 
 
 @dataclass(frozen=True)
