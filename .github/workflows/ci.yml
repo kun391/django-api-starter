@@ -116,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
@@ -137,10 +137,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
-      - name: Install matching PostgreSQL 17 client
+      - name: Install matching PostgreSQL 16 client
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client-17
+          sudo apt-get install -y postgresql-client-16
       - name: Validate DR script shell syntax
         run: sh -n scripts/test_dr_postgres.sh
       - name: Isolated backup, verify, restore, reject overwrites and corruption
