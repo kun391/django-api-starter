@@ -231,3 +231,27 @@ and `--confirm RESTORE:<source>-><dr-bucket>`. Use dedicated IAM credentials
 restricted to read specified source object versions and write only the new DR
 bucket. An interrupted copy may leave partial contents; investigate rather than
 automatically delete. This is not an atomic DB/S3 restore or an offsite replica.
+
+## Full CI recovery drill (disposable only)
+
+The `Complete encrypted PostgreSQL + files recovery drill` GitHub Actions job
+starts a disposable PostgreSQL 16 service and a local, temporary encrypted
+restic repository. `scripts/test_dr_full_drill.py` is **test-only** and refuses
+to run without `DR_CI_ISOLATED=yes`, `PGHOST=127.0.0.1`,
+`PGUSER=postgres`, and `PGPORT=5432`. It rejects libpq host-address
+and service-file overrides.
+
+The drill seeds a PostgreSQL recovery metadata probe and matching private-file
+bytes, creates a real custom-format dump and inventory, validates a combined
+recovery-point manifest, encrypts the full bundle with restic, validates the
+repository, restores an exact snapshot into a new directory, restores the dump
+into a new `dr_` database, verifies the recovered bytes and checks the database
+metadata against the restored object inventory. Deliberately corrupting an
+extracted file must then fail the integrity verifier.
+
+This connects the backup tools in one test, but **does not** run Django
+migrations or exercise a complete production application and does not prove
+an atomic snapshot with concurrent writers. CI does not demonstrate external
+offsite durability, immutability, key recovery, alerting or achieved RPO/RTO.
+Those remain environment-specific release acceptance gates. Do not use the
+CI-only drill against production services.
