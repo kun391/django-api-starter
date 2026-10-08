@@ -99,7 +99,6 @@ module = [
     "django_filters.*",
     "rest_framework.*",
     "celery.*",
-    "opentelemetry.*",
 ]
 ignore_missing_imports = true
 
