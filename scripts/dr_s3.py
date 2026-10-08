@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-from importlib import import_module
 import json
 import os
 import re
+from importlib import import_module
 from pathlib import Path
 
 
