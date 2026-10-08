@@ -5,6 +5,7 @@ owns:
   - terminal history cleanup orchestration
 public_api: []
 depends_on:
+  - organizations
   - files
   - tickets
   - webhooks
