@@ -51,11 +51,19 @@ def create_module(
     kind: str | None = None,
     architecture: str | None = None,
 ) -> Path:
+    try:
+        validate_name(name)
+    except argparse.ArgumentTypeError as exc:
+        raise ValueError(str(exc)) from exc
+    if name == "core":
+        raise ValueError("core is reserved for platform primitives")
     if preset not in PRESETS:
         raise ValueError(f"Unknown scaffold preset: {preset}")
     default_kind, default_architecture = PRESET_METADATA[preset]
-    module_kind = kind or default_kind
-    module_architecture = architecture or default_architecture
+    module_kind = default_kind if kind is None else kind
+    module_architecture = (
+        default_architecture if architecture is None else architecture
+    )
     if module_kind not in MODULE_KINDS:
         raise ValueError(f"Invalid module kind: {module_kind}")
     if module_architecture not in ARCHITECTURE_LEVELS:
