@@ -8,6 +8,8 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from .health import celery_health
+
 handler400 = "apps.core.api.errors.bad_request"
 handler403 = "apps.core.api.errors.permission_denied"
 handler404 = "apps.core.api.errors.not_found"
@@ -25,6 +27,7 @@ urlpatterns = [
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    path("health/celery/", celery_health, name="celery_health"),
     path("health/", include("apps.core.health.urls")),
 ]
 

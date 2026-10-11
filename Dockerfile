@@ -76,23 +76,23 @@ EXPOSE 8000
 
 FROM runtime-base AS runtime
 COPY --from=prod-deps /app/.venv /app/.venv
-CMD ["gunicorn", "--config", "config/gunicorn.py", "apps.core.wsgi:application"]
+CMD ["gunicorn", "--config", "config/gunicorn.py", "config.wsgi:application"]
 
 FROM runtime-base AS runtime-async
 COPY --from=async-deps /app/.venv /app/.venv
-CMD ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
+CMD ["celery", "-A", "config.celery:app", "worker", "--loglevel=info"]
 
 FROM runtime-base AS runtime-storage
 COPY --from=storage-deps /app/.venv /app/.venv
-CMD ["gunicorn", "--config", "config/gunicorn.py", "apps.core.wsgi:application"]
+CMD ["gunicorn", "--config", "config/gunicorn.py", "config.wsgi:application"]
 
 FROM runtime-base AS runtime-telemetry
 COPY --from=telemetry-deps /app/.venv /app/.venv
-CMD ["gunicorn", "--config", "config/gunicorn.py", "apps.core.wsgi:application"]
+CMD ["gunicorn", "--config", "config/gunicorn.py", "config.wsgi:application"]
 
 FROM runtime-base AS runtime-full
 COPY --from=full-deps /app/.venv /app/.venv
-CMD ["gunicorn", "--config", "config/gunicorn.py", "apps.core.wsgi:application"]
+CMD ["gunicorn", "--config", "config/gunicorn.py", "config.wsgi:application"]
 
 FROM uv-base AS development-base
 RUN apt-get update \
@@ -112,4 +112,4 @@ CMD ["./bin/run_local.sh"]
 
 FROM development-base AS development-async
 COPY --from=dev-async-deps --chown=django:django /app/.venv /app/.venv
-CMD ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
+CMD ["celery", "-A", "config.celery:app", "worker", "--loglevel=info"]

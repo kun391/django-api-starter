@@ -40,42 +40,38 @@ This guide covers development practices, coding standards, and workflow for the 
 
 ## Project Structure
 
+```text
+django-api-starter/
+├── apps/
+│   ├── core/                # Platform primitives; no business imports
+│   ├── accounts/
+│   ├── files/
+│   ├── organizations/
+│   ├── tickets/
+│   ├── webhooks/
+│   ├── notifications/
+│   ├── operations/
+│   └── retention/
+├── config/                  # Project composition root
+│   ├── urls.py              # Composes module APIs and health endpoints
+│   ├── wsgi.py              # Gunicorn application entrypoint
+│   ├── celery.py            # Optional Celery worker/beat entrypoint
+│   ├── health.py            # Optional worker diagnostic
+│   └── gunicorn.py          # Production Gunicorn process settings
+├── settings/                # Environment-specific Django configuration
+├── scripts/                 # Tooling, release gates, disaster recovery
+├── tests/                   # Cross-cutting integration and contract tests
+├── compose.yaml             # Development Compose
+├── compose.production.yaml  # Standalone production Compose
+├── Dockerfile
+├── Makefile
+├── pyproject.toml
+└── uv.lock
 ```
-django-api-template/
-├── apps/                    # Django applications
-│   ├── core/               # Core functionality
-│   │   ├── health/         # Health check endpoints
-│   │   ├── celery.py       # Celery configuration
-│   │   ├── urls.py         # Main URL configuration
-│   │   └── wsgi.py         # WSGI configuration
-│   └── users/              # User management
-│       ├── models.py       # User model
-│       ├── serializers.py  # DRF serializers
-│       ├── views.py        # API views
-│       ├── urls.py         # URL patterns
-│       └── admin.py        # Admin configuration
-├── settings/               # Django settings
-│   ├── base.py            # Base settings
-│   ├── local.py           # Local development
-│   ├── staging.py         # Staging environment
-│   └── production.py      # Production environment
-├── requirements/           # Python dependencies
-│   ├── base.txt           # Base requirements
-│   ├── local.txt          # Development requirements
-│   └── production.txt     # Production requirements
-├── tests/                 # Test configuration
-│   ├── conftest.py        # Pytest configuration
-│   ├── test_health.py     # Health check tests
-│   └── test_users.py      # User app tests
-├── docs/                  # Documentation
-├── bin/                   # Scripts and utilities
-├── config/                # Gunicorn configuration
-├── Dockerfile             # Docker configuration
-├── docker-compose.yml     # Docker Compose services
-├── Makefile               # Development commands
-├── pyproject.toml         # Python project configuration
-└── manage.py              # Django management script
-```
+
+`apps/core` does not own process startup or URL assembly. See
+[ARCHITECTURE.md](../ARCHITECTURE.md) for module dependencies and the
+one-way `config -> apps` composition boundary.
 
 ## Coding Standards
 
@@ -298,17 +294,19 @@ make reset-db
 ## Background Tasks
 
 ### Celery Configuration
-```python
-# apps/core/celery.py
-from celery import Celery
-import os
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings.local')
+`config/celery.py` configures the optional Celery app from Django settings.
+API and background worker commands use the same `settings.production`
+configuration in production. The development commands are:
 
-app = Celery('core')
-app.config_from_object('django.conf:settings', namespace='CELERY')
-app.autodiscover_tasks()
+```bash
+celery -A config.celery:app worker --loglevel=info
+celery -A config.celery:app beat --loglevel=info
 ```
+
+The `async` extra is optional; do not import Celery in a minimal API image.
+The existing Celery health diagnostic remains `/health/celery/` and returns
+503 if the extra is not installed.
 
 ### Running Celery
 ```bash

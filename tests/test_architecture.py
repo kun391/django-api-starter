@@ -137,3 +137,45 @@ def test_current_generator_metadata_passes_checker(isolated_apps, preset):
     assert metadata["architecture"] in check_architecture.ARCHITECTURE_LEVELS
     assert "type" not in metadata
     assert check_architecture.check() == []
+
+
+@pytest.mark.parametrize(
+    "offending_import",
+    [
+        "import apps.tickets.services",
+        "from apps.tickets import services",
+        "from apps import tickets",
+        "from importlib import import_module; import_module('apps.tickets.services')",
+        "from django.utils.module_loading import import_string; import_string('apps.tickets.services')",
+        "from config.celery import app",
+        "from config import urls",
+    ],
+)
+def test_core_cannot_depend_on_business_modules_or_config(
+    isolated_apps, offending_import
+):
+    add_module(isolated_apps, "tickets")
+    core = isolated_apps / "core"
+    core.mkdir()
+    (core / "__init__.py").write_text("")
+    (core / "bridge.py").write_text(offending_import + "\n")
+    assert_problem("core: must not import business modules or the config")
+
+
+def test_core_can_depend_on_own_primitives_and_framework(isolated_apps):
+    add_module(isolated_apps, "tickets")
+    core = isolated_apps / "core"
+    core.mkdir()
+    (core / "__init__.py").write_text("")
+    (core / "shared.py").write_text(
+        "from apps.core import outbox\n"
+        "from django.db import transaction\n"
+    )
+    assert check_architecture.check() == []
+
+
+def test_from_apps_import_is_tracked_for_business_modules(isolated_apps):
+    path = add_module(isolated_apps, "tickets")
+    add_module(isolated_apps, "files")
+    (path / "service.py").write_text("from apps import files\n")
+    assert_problem("tickets: imports undeclared modules: files")

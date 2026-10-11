@@ -168,10 +168,10 @@ coverage:
 
 # Background tasks
 worker:
-	$(COMPOSE_EXEC) web celery -A apps.core.celery:app worker --loglevel=info
+	$(COMPOSE_EXEC) web celery -A config.celery:app worker --loglevel=info
 
 beat:
-	$(COMPOSE_EXEC) web celery -A apps.core.celery:app beat --loglevel=info
+	$(COMPOSE_EXEC) web celery -A config.celery:app beat --loglevel=info
 
 # Static files
 collectstatic:

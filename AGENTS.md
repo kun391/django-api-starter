@@ -90,6 +90,15 @@ not a nested DB/idempotency transaction. Reuse outbox cleanup; do not delete sto
 objects in save/delete signals. Signed URLs are bearer grants, not ongoing auth.
 Keep S3 optional and distinguish format validation from malware scanning.
 
+## Project composition boundary
+
+`config/` owns URL assembly, WSGI and optional Celery process entrypoints.
+`apps/core` is a reusable downstream platform layer; it must never import
+other business/integration/support modules or the `config` composition root.
+When adding a new route, wire it in `config/urls.py`, not `apps/core/urls.py`.
+When adjusting runtime commands, update Dockerfile, both Compose manifests,
+Makefile, smoke_production.sh and documented commands together.
+
 ## Deployment and release
 
 Read `docs/deployment.md` before changing runtime, release or migration behavior.

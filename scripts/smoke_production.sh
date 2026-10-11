@@ -82,12 +82,18 @@ for variant in "${variants[@]}"; do
     fi
     run python manage.py release_check
     run python manage.py release_migrate
+    # Validate the *real built async image*, not just the Django test client.
+    # Celery report loads config.celery:app without contacting the broker.
+    if [ "$variant" = runtime-async ] || [ "$variant" = runtime-full ]; then
+        run celery -A config.celery:app report >/dev/null
+        run python -c "import django; django.setup(); from config.celery import app; app.autodiscover_tasks(force=True); assert app.main == 'core'; assert 'core.dispatch_outbox' in app.tasks"
+    fi
     docker run -d --name "$web" --network "$network" --env-file "$tmp/runtime.env" \
         --read-only --cap-drop ALL --security-opt no-new-privileges:true \
         --tmpfs /tmp:rw,noexec,nosuid,size=128m,mode=1777 \
         --mount "type=volume,source=$volume,target=/app/private-files" \
         -p 127.0.0.1::8000 "$image" \
-        gunicorn --config config/gunicorn.py apps.core.wsgi:application >/dev/null
+        gunicorn --config config/gunicorn.py config.wsgi:application >/dev/null
     for attempt in $(seq 1 60); do
         if docker exec "$web" python scripts/healthcheck.py; then break; fi
         sleep 1

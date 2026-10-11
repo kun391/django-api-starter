@@ -1,4 +1,4 @@
-"""WSGI entrypoint."""
+"""Production WSGI entrypoint for the Django application."""
 
 import os
 

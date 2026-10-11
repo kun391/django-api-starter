@@ -47,6 +47,20 @@ stdout/stderr logging without query strings, credential headers or bodies.
 Tune worker counts against CPU, RAM and PostgreSQL connection capacity; defaults
 are a starting point, not a benchmark-derived capacity claim.
 
+### Production entrypoints
+
+The project composition root owns the process entrypoints; platform primitives
+are in `apps/core`. Gunicorn starts `config.wsgi:application` (and
+`WSGI_APPLICATION=config.wsgi.application`). Async worker and Beat commands
+use `celery -A config.celery:app`. Both Compose manifests and every runtime
+Docker target use these same targets. The `config/health.py` adapter retains
+the existing `/health/celery/` diagnostic without making Celery mandatory for
+the minimal API image. CI smoke additionally imports the real Celery app and
+registered task from `runtime-async` and `runtime-full` without connecting
+to a broker. Changing these import paths is a deployment contract change:
+update any external supervisor, Helm chart or service definition to the new
+entrypoints at the same rollout boundary.
+
 ## Build, verify, publish, promote
 
 The PR/main `CI` workflow has six required checks:

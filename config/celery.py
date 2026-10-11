@@ -1,4 +1,4 @@
-"""Celery application configuration."""
+"""Optional Celery application at the project composition boundary."""
 
 import os
 

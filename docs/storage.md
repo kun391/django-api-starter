@@ -193,7 +193,7 @@ It starts Gunicorn by default. Run the same image with
 scheduler. No Celery/Redis is needed for this route. Existing `runtime-async` and
 `development-async` images do NOT include the storage extra. An S3-backed Celery
 worker requires an application image with BOTH extras, or an environment started
-with `uv run --extra async --extra storage celery -A apps.core.celery:app worker`.
+with `uv run --extra async --extra storage celery -A config.celery:app worker`.
 Do not start a filesystem-configured cleanup worker against S3-configured uploads.
 
 Changing the backend/bucket/root does not migrate existing objects. Preserve the
