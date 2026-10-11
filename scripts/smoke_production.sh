@@ -86,7 +86,7 @@ for variant in "${variants[@]}"; do
     # Celery report loads config.celery:app without contacting the broker.
     if [ "$variant" = runtime-async ] || [ "$variant" = runtime-full ]; then
         run celery -A config.celery:app report >/dev/null
-        run python -c "from config.celery import app; assert app.main == 'core'; assert 'core.dispatch_outbox' in app.tasks"
+        run python -c "import django; django.setup(); from config.celery import app; app.autodiscover_tasks(force=True); assert app.main == 'core'; assert 'core.dispatch_outbox' in app.tasks"
     fi
     docker run -d --name "$web" --network "$network" --env-file "$tmp/runtime.env" \
         --read-only --cap-drop ALL --security-opt no-new-privileges:true \
