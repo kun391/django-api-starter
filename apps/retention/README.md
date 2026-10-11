@@ -1,4 +1,4 @@
-# Data lifecycle and retention (Phase 21)
+# Data lifecycle and retention
 
 This module coordinates bounded deletion of infrastructure/history rows after
 their operational purpose has ended. It does **not** implement business-record
