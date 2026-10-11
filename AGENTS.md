@@ -66,9 +66,12 @@ delivery must commit with the business mutation. Consumers register using public
 `outbox.subscribe(topic, handler, subscriber_id=...)` in `AppConfig.ready()`,
 never by wrapping or modifying private registry internals. Producers must not
 register empty callbacks as placeholders. Subscriber IDs must be stable and
-fanout must remain idempotent: outbox delivery is at-least-once. Until the
-per-subscriber delivery-state refactor, retries/dead letters remain event-level
-and replay the entire ordered subscriber group. Never claim exactly-once delivery.
+fanout must remain idempotent: outbox delivery is at-least-once.
+Outbox deliveries are durable per `(event, subscriber_id)`; a failed
+subscriber retries independently, without replaying succeeded siblings.
+Use stable subscriber IDs, never silently remove/rename them while pending
+deliveries exist, and use explicit targeted requeue for dead-letter rows.
+Never claim exactly-once delivery.
 
 ## Caching and performance
 
