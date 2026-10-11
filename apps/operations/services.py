@@ -9,7 +9,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Count, Min, Q
 from django.utils import timezone
 
-from apps.core.models import OutboxEvent
+from apps.core.models import OutboxDelivery, OutboxEvent
 from apps.core.telemetry import gauge_set
 from apps.notifications.models import NotificationDelivery
 from apps.webhooks.models import WebhookDelivery
@@ -97,6 +97,39 @@ def _outbox_state(now: datetime) -> QueueState:
     )
 
 
+def _outbox_subscriber_state(subscriber_id: str, now: datetime) -> QueueState:
+    """Aggregate per-subscriber retry/dead-letter state without payloads."""
+    ready = Q(
+        succeeded_at__isnull=True,
+        dead_lettered_at__isnull=True,
+        available_at__lte=now,
+    )
+    values: dict[str, Any] = OutboxDelivery.objects.filter(
+        subscriber_id=subscriber_id
+    ).aggregate(
+        pending=Count("id", filter=ready),
+        retrying=Count("id", filter=ready & Q(attempts__gt=0)),
+        terminal_failures=Count("id", filter=Q(dead_lettered_at__isnull=False)),
+        active_leases=Count("id", filter=ready & Q(locked_until__gt=now)),
+        stale_leases=Count(
+            "id",
+            filter=ready & Q(lock_token__isnull=False, locked_until__lte=now),
+        ),
+        oldest=Min("created_at", filter=ready),
+    )
+    age = _age_seconds(values["oldest"], now)
+    failures = int(values["terminal_failures"] or 0)
+    return QueueState(
+        pending=int(values["pending"] or 0),
+        retrying=int(values["retrying"] or 0),
+        terminal_failures=failures,
+        active_leases=int(values["active_leases"] or 0),
+        stale_leases=int(values["stale_leases"] or 0),
+        oldest_pending_age_seconds=age,
+        status=_status(age=age, terminal_failures=failures),
+    )
+
+
 def _delivery_state(model, now: datetime) -> QueueState:
     ready = Q(
         delivered_at__isnull=True,
@@ -135,6 +168,14 @@ def operations_snapshot() -> OperationsSnapshot:
         "webhooks": _delivery_state(WebhookDelivery, now),
         "notifications": _delivery_state(NotificationDelivery, now),
     }
+    for subscriber_id in (
+        OutboxDelivery.objects.order_by("subscriber_id")
+        .values_list("subscriber_id", flat=True)
+        .distinct()
+    ):
+        queues[f"outbox:{subscriber_id}"] = _outbox_subscriber_state(
+            subscriber_id, now
+        )
     overall = "ok"
     statuses = {state.status for state in queues.values()}
     if "critical" in statuses:
