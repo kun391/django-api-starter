@@ -127,7 +127,7 @@ class TestAPIContract:
         assert problem["$ref"].endswith("/APIProblem")
         actual = api_client.get("/api/v1/missing/").json()
         assert set(actual) == set(schema["components"]["schemas"]["APIProblem"]["required"])
-        # Replay remains explicitly opt-in. Phase 13 intentionally enables it
+        # Replay remains explicitly opt-in. The tickets module enables it
         # only for ticket creation; credential and unrelated endpoints stay out.
         idempotent_operations = {
             (path, method)
