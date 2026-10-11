@@ -72,8 +72,9 @@ def check_contracts(
                 owners[topic] = module
 
     for module, metadata in sorted(manifests.items()):
-        emitted = set(metadata.get("emits", [])) if isinstance(
-            metadata.get("emits"), list
+        values = metadata.get("emits")
+        emitted = set(v for v in values if isinstance(v, str)) if isinstance(
+            values, list
         ) else set()
         actual_literals = literal_emits.get(module, set())
         missing_emits = actual_literals - emitted
