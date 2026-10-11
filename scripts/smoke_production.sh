@@ -87,7 +87,7 @@ for variant in "${variants[@]}"; do
         --tmpfs /tmp:rw,noexec,nosuid,size=128m,mode=1777 \
         --mount "type=volume,source=$volume,target=/app/private-files" \
         -p 127.0.0.1::8000 "$image" \
-        gunicorn --config config/gunicorn.py apps.core.wsgi:application >/dev/null
+        gunicorn --config config/gunicorn.py config.wsgi:application >/dev/null
     for attempt in $(seq 1 60); do
         if docker exec "$web" python scripts/healthcheck.py; then break; fi
         sleep 1
