@@ -1,6 +1,6 @@
-# Resilience and failure testing (Phase 22)
+# Resilience and failure testing
 
-Phase 22 defines failure semantics for the starter and locks them with automated
+This guide defines failure semantics for the starter and locks them with automated
 tests. It does not add a general chaos framework or hide infrastructure outages.
 
 ## Failure matrix
@@ -46,7 +46,7 @@ If a process disappears after a claim:
 4. completion is guarded by the current lock token.
 
 Lease duration must exceed normal processing latency but remain short enough to
-bound crash recovery. Sustained stale leases are exposed by Phase 20 operations
+bound crash recovery. Sustained stale leases are exposed by operations
 monitoring.
 
 ## At-least-once and idempotency
@@ -76,7 +76,7 @@ entire bucket.
 
 ## CI coverage
 
-Phase 22 adds explicit recovery tests for:
+The test suite includes explicit recovery tests for:
 
 - abandoned outbox lease -> reclaim -> publish;
 - abandoned webhook lease -> reclaim -> one send;
