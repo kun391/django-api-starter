@@ -1,5 +1,6 @@
 name: accounts
-type: medium
+kind: business
+architecture: medium
 owns:
   - user identity
   - user profile
