@@ -243,3 +243,25 @@ def test_active_outbox_lease_blocks_requeue(settings):
             "requeue_outbox", str(event.pk),
             subscriber_id="broken", stdout=StringIO(),
         )
+
+
+def test_active_subscriber_lease_blocks_targeted_requeue(settings):
+    settings.OUTBOX_MAX_ATTEMPTS = 1
+
+    def fail(_e):
+        raise RuntimeError("failure")
+
+    outbox.subscribe("sample.changed", fail, subscriber_id="broken")
+    event = enqueue("sample.changed")
+    assert outbox.process_outbox_batch() == 0
+    OutboxDelivery.objects.filter(
+        event=event, subscriber_id="broken"
+    ).update(
+        locked_until=timezone.now() + timedelta(seconds=30),
+        lock_token=uuid.uuid4(),
+    )
+    with pytest.raises(CommandError, match="Active subscriber lease"):
+        call_command(
+            "requeue_outbox", str(event.pk),
+            subscriber_id="broken", stdout=StringIO(),
+        )
