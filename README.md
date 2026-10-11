@@ -153,6 +153,14 @@ The current `accounts` module is the reference medium-complexity module.
 
 ## Module tooling
 
+Module manifests distinguish responsibility (`kind: business | integration | support`)
+from structural maturity (`architecture: simple | medium | complex`).
+The architecture checker also rejects cycles in the declared `depends_on`
+graph and disallows premature `domain/`, `ports/`, `adapters/` directories
+for `simple` modules. See [ARCHITECTURE.md](ARCHITECTURE.md).
+Existing `--type` values remain scaffold presets until the generator
+cleanup; they are not module kinds.
+
 Create a module:
 
 ```bash
