@@ -63,27 +63,53 @@ Event payload + metadata are capped at 64 KiB by default. Topics are lowercase,
 versioned by the separate integer field, and should describe facts that happened rather
 than commands to perform.
 
-## Handlers
+## Subscriptions
 
-Register one handler per topic:
+Register **named subscribers**, not placeholder handlers in the producer. A
+single event topic can have several subscribers:
 
 ```python
-from apps.core.outbox import outbox_handler
+# apps/notifications/apps.py
+from apps.core.outbox import subscribe
+from apps.notifications.services import fanout_event
 
-@outbox_handler("orders.order-created")
-def on_order_created(event):
-    order_id = event["payload"]["order_id"]
-    ...
+# Inside AppConfig.ready():
+subscribe(
+    "orders.order-created",
+    fanout_event,
+    subscriber_id="notifications",
+    order=20,
+)
 ```
 
-Handler registration should live in the owning/integration module and be imported during
-application startup. Do not put business logic in the handler; load identifiers and call
-the appropriate application service.
+A subscription is process-local and is registered at Django app startup. It
+does **not** require the producer app to be loaded first. Re-registering the
+same topic, subscriber ID, handler function and order is safe when
+`AppConfig.ready()` is called again. Reusing an ID for a different handler or
+order raises a configuration error. The retired single-handler decorator
+`outbox_handler()` remains available temporarily for backward compatibility;
+new modules must use `subscribe()` with an explicit stable subscriber ID.
 
-Handlers are **at-least-once**. They must be idempotent. A worker can crash after an
-external side effect succeeds but before `published_at` is persisted, causing the same
-event ID to be delivered again. Use the event UUID as the downstream idempotency key when
-the provider supports it, or maintain an inbox/deduplication record at the consumer.
+Subscribers execute in deterministic order: ascending `order`, then
+`subscriber_id` (default order 100). Use
+`subscriptions_for(topic)` or `registered_subscriptions()` to inspect the
+read-only registration view. Module consumers should have no access to
+`_SUBSCRIBERS` or other private registry internals. Do not register a
+producer-side no-op handler merely to make its topics available.
+
+Handlers should be thin, idempotent and load business identifiers via
+application services. Delivery remains **at-least-once**; a worker can crash
+after an external side effect succeeds but before durable acknowledgement.
+Use the event UUID as the downstream idempotency key or maintain dedupe state.
+
+**PR #43 transition:** Registration supports multiple subscribers, but
+`OutboxEvent` still has **one event-level** lease, retry counter and dead-letter
+state. A subscriber exception stops the remaining subscribers for that attempt.
+On retry, previously successful subscribers run again, in the same order;
+a subscriber can therefore prevent a later one from progressing. Fanout
+services must remain idempotent. This is the existing delivery contract, not
+per-subscriber failure isolation. The subsequent delivery-state refactor
+will introduce separate persistent status/retries for each subscriber.
 
 There is no exactly-once claim.
 
