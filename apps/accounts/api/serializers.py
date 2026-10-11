@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from apps.accounts.models import User
-from apps.accounts.services.register_user import register_user
+from apps.accounts.services import register_user
 
 
 class UserSerializer(serializers.ModelSerializer):

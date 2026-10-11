@@ -71,7 +71,7 @@ CSRF_FAILURE_VIEW = "apps.core.api.errors.csrf_failure"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "DIRS": [],  # App templates are discovered via APP_DIRS; add a real project directory only when needed.
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [

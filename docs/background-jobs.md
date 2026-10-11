@@ -1,4 +1,4 @@
-# Background jobs and transactional outbox (Phase 9)
+# Background jobs and transactional outbox
 
 ## Two delivery classes
 
@@ -186,12 +186,12 @@ over Celery Beat.
 
 ## External brokers
 
-This phase intentionally does not add Kafka/NATS/SNS/SQS abstractions. If a product needs
+This starter intentionally does not add Kafka/NATS/SNS/SQS abstractions. If a product needs
 a real integration-event broker, keep the same transactional outbox table and replace or
 extend the delivery handler at that volatile boundary. Do not make the database
 transaction wait on a network publish.
 
-## Relationship to Phase 7 idempotency
+## Relationship to API idempotency
 
 Incoming idempotency and outgoing outbox solve different halves of a reliable write:
 
@@ -213,7 +213,7 @@ at-least-once handler / integration
 ```
 
 An idempotent POST can persist an outbox row inside the same durable transaction used by
-the Phase 7 helper. Do not use `transaction.on_commit` for delivery that is part of the
+the shared idempotency helper. Do not use `transaction.on_commit` for delivery that is part of the
 business guarantee.
 
 ## Operations

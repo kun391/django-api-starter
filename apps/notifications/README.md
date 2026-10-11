@@ -1,6 +1,6 @@
 # Notification Foundation
 
-Phase 19 adds durable transactional email notifications on top of the existing
+This module provides durable transactional email notifications on top of the existing
 transactional outbox.
 
 ## Flow
@@ -76,7 +76,7 @@ Each template has:
 - `subject.txt` — must render to one line
 - `body.txt` — plain-text body
 
-Phase 19 deliberately starts with plain-text transactional email. HTML,
+The default implementation deliberately starts with plain-text transactional email. HTML,
 localization, digesting, marketing campaigns, SMS and push are later concerns.
 
 ## Operations

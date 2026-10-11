@@ -123,7 +123,7 @@ architecture:
 
 module:
 	@test -n "$(name)" || (echo "name is required"; exit 1)
-	$(COMPOSE_EXEC) web python scripts/create_module.py "$(name)" --type "$(or $(type),crud)"
+	$(COMPOSE_EXEC) web python scripts/create_module.py "$(name)" --preset "$(or $(preset),crud)"
 
 ai-context:
 	@test -n "$(name)" || (echo "name is required"; exit 1)

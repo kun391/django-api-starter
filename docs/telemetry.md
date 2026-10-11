@@ -1,6 +1,6 @@
-# OpenTelemetry and metrics foundation (Phase 23)
+# OpenTelemetry and metrics
 
-Phase 23 adds an **optional**, vendor-neutral telemetry boundary. The base
+This guide documents an **optional**, vendor-neutral telemetry boundary. The base
 application, migrations, tests and minimal production image continue to work
 without OpenTelemetry installed.
 
@@ -29,7 +29,7 @@ When `TELEMETRY_ENABLED=True`:
 - structured application logs include current trace/span IDs;
 - cache, private-storage and durable delivery outcomes emit low-cardinality
   metrics;
-- the Phase 20 operations snapshot emits queue gauges.
+- the operations snapshot emits queue gauges.
 
 The starter exports traces and metrics through OTLP/HTTP. It does not bundle an
 OpenTelemetry Collector, Prometheus, Grafana, Tempo, Jaeger, Datadog, Honeycomb
@@ -132,7 +132,7 @@ Current application metrics include:
 - `app.queue.stale_leases`
 - `app.queue.oldest_pending_age`
 
-Queue gauges are updated when `operations_snapshot()` runs. Phase 20 already
+Queue gauges are updated when `operations_snapshot()` runs. The operations module already
 provides the staff operations endpoint and `report_operations` command. Poll or
 schedule that snapshot at an appropriate cadence if queue gauges are required in
 the OTLP metrics stream. The starter deliberately does not query durable queues
@@ -167,5 +167,5 @@ A collector outage must not:
 - mark a durable queue item delivered or failed;
 - change PostgreSQL readiness semantics.
 
-Use local structured logs and the Phase 20 operations snapshot when the telemetry
+Use local structured logs and the operations snapshot when the telemetry
 backend itself is impaired.

@@ -1,6 +1,6 @@
 # Organizations
 
-Phase 14 introduces an explicit tenant boundary and fixed-role RBAC model.
+The module enforces an explicit tenant boundary and fixed-role RBAC model.
 
 Tenant identity comes from the organization UUID in the route plus the
 authenticated user's persisted membership. No client-supplied tenant or role
@@ -16,7 +16,7 @@ strings, billing tenancy and database row-level security are intentionally out o
 scope.
 
 
-## Phase 16 audit history
+## Durable audit history
 
 Successful organization and membership mutations append a durable audit row in
 the same transaction as the business write and outbox event.

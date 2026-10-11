@@ -1,4 +1,4 @@
-# API contract (Phase 7)
+# API contract
 
 ## Scope and compatibility
 
@@ -7,7 +7,7 @@ changes behind an explicit version decision. OpenAPI is generated from code at
 `/api/schema/`; interactive documentation remains at `/api/docs/` and `/api/redoc/`.
 Operational `/health/*` probes are intentionally outside the client schema.
 
-This phase changes the error body from DRF's field/dict shape to Problem Details.
+The API uses Problem Details errors rather than DRF's default field/dict shape.
 Clients must migrate field lookups to `errors[].attr`, `errors[].code` and
 `errors[].detail`. Unauthenticated requests now consistently return 401 because
 TokenAuthentication precedes SessionAuthentication; authenticated forbidden
@@ -206,7 +206,7 @@ handling (https://www.django-rest-framework.org/api-guide/exceptions/), PostgreS
 advisory locking (https://www.postgresql.org/docs/17/functions-admin.html#FUNCTIONS-ADVISORY-LOCKS).
 
 
-## Optimistic concurrency (Phase 15)
+## Optimistic concurrency
 
 Write concurrency is explicit and opt-in. Resource modules that advertise the
 `If-Match` header must issue a strong resource ETag and validate the precondition

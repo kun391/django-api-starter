@@ -1,6 +1,6 @@
 # Outbound Webhooks
 
-Phase 18 adds tenant-scoped outbound webhook delivery without coupling external
+This module provides tenant-scoped outbound webhook delivery without coupling external
 HTTP calls to business transactions.
 
 ## Flow

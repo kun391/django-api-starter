@@ -31,7 +31,7 @@ def s3_backend(settings, monkeypatch, tmp_path):
     boto3 = import_module("boto3")
     config_class = import_module("botocore.config").Config
     client = boto3.client("s3", endpoint_url=ENDPOINT, region_name="us-east-1", config=config_class(signature_version="s3v4", s3={"addressing_style": "path"}))
-    bucket = f"phase11-{uuid4().hex}"
+    bucket = f"starter-s3-{uuid4().hex}"
     client.create_bucket(Bucket=bucket)
     values = {"PRIVATE_FILE_BACKEND": "s3", "PRIVATE_FILE_S3_BUCKET": bucket, "PRIVATE_FILE_S3_ENDPOINT": ENDPOINT, "PRIVATE_FILE_S3_ALLOW_HTTP": True}
     monkeypatch.setattr(file_storage, "config", lambda name, default=None, **kwargs: values.get(name, default))

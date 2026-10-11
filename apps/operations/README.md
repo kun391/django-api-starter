@@ -1,6 +1,6 @@
 # Operations and Observability Hardening
 
-Phase 20 adds vendor-neutral operational visibility for the durable queues already
+This module provides vendor-neutral operational visibility for the durable queues already
 owned by the starter.
 
 ## Queue snapshot
@@ -84,7 +84,7 @@ At minimum alert on:
 - PostgreSQL readiness failures;
 - scheduler/worker process absence.
 
-Phase 23 adds optional OpenTelemetry export for these aggregate queue gauges and
+Optional OpenTelemetry export covers these aggregate queue gauges and
 other application signals. It still does not install Prometheus, Grafana, Tempo,
 a collector or a hosted monitoring vendor. Queue gauges are emitted when an
 operations snapshot is generated, so poll the endpoint or schedule

@@ -1,4 +1,4 @@
-# Security baseline (Phase 8)
+# Security baseline
 
 ## Authentication strategy
 
@@ -29,7 +29,7 @@ The accounts reference module demonstrates action-specific policy:
 Self-service serializers do not expose `is_staff`, `is_superuser`, password or email, so
 posting those fields cannot escalate privileges or replace the login identity. Business
 modules should perform tenant/object authorization before mutations and before invoking
-the Phase 7 idempotency helper.
+the shared idempotency helper.
 
 Do not infer authorization from a client-supplied tenant, role or scope header.
 
@@ -50,7 +50,7 @@ Defaults:
 The credential and IP are HMAC inputs; neither raw value is stored in
 `SecurityThrottleBucket`. Counters use PostgreSQL `INSERT ... ON CONFLICT ... RETURNING`
 so workers increment one shared bucket atomically. A rejected request returns the normal
-Phase 7 Problem Details response with status 429 and `Retry-After`.
+Problem Details response with status 429 and `Retry-After`.
 
 These controls reduce brute-force and accidental abuse; they are not a WAF or DDoS
 service. Keep edge/CDN/load-balancer rate limiting for volumetric attacks.
@@ -102,7 +102,7 @@ uv run python manage.py purge_security_throttles --batch-size 1000
 ```
 
 Each run deletes one bounded batch. Schedule it with the deployment platform just like
-the Phase 7 idempotency cleanup command.
+the idempotency cleanup command.
 
 ## Configuration
 

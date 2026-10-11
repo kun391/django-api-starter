@@ -1,4 +1,4 @@
-# API and database compatibility gates (Phase 17)
+# API and database compatibility gates
 
 Production releases must preserve a rolling compatibility window. CI now checks
 both the public OpenAPI contract and newly changed Django migrations on pull

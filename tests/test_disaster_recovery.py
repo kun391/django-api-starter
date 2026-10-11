@@ -1,4 +1,4 @@
-"""Phase 24 DR CLI fail-closed behavior (no external PostgreSQL required)."""
+"""DR CLI fail-closed behavior (no external PostgreSQL required)."""
 import importlib.util
 from pathlib import Path
 from unittest.mock import patch

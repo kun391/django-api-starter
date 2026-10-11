@@ -1,11 +1,11 @@
-# Private file storage and secure uploads (Phase 11)
+# Private file storage and secure uploads
 
 ## Scope and compatibility
 
 `apps.files` provides owner-only uploads, metadata, downloads, immutable replacement
 and logical deletion. It uses Django Storage, not a new storage framework. The
 minimal web + PostgreSQL stack needs no S3, Redis or worker. The existing `storage`
-extra enables S3-compatible deployments; no dependency versions change in this phase.
+extra enables S3-compatible deployments; no dependency version changes are required.
 
 **Compatibility change:** Django's default file storage is now private, alongside
 `storages['private']`. The DEBUG-only public `/media/` route has been removed.
@@ -36,7 +36,7 @@ IDs are UUIDs. Clients never submit storage keys, paths, URLs or owner IDs.
 
 Unknown/repeated multipart fields and any query parameters are rejected. No JSON
 base64 upload is supported. Metadata includes `id`, `purpose`, `original_name`,
-`size`, `media_type`, `sha256` and `created_at`, never the storage key. No Phase 7
+`size`, `media_type`, `sha256` and `created_at`, never the storage key. No
 Idempotency-Key replay is enabled: retrying a successful upload after losing its
 response may create a second ready file. Product-level command idempotency and
 attachment identity are separate design decisions, not a storage guarantee.
@@ -56,7 +56,7 @@ curl --fail-with-body "http://localhost:5001/api/v1/files/$FILE_ID/download/" \
   -H 'Accept: application/octet-stream' --output downloaded.txt
 ```
 
-The API preserves Phase 7 Problem Details and request IDs. Validation failures
+The API preserves the shared Problem Details and request IDs. Validation failures
 are 400, wrong request media type 415, file size/count limits 413, upload conflict
 409, upload throttle 429 with Retry-After, and translated storage I/O failures
 503 `file_storage_unavailable`. DB/programming/configuration failures are not
@@ -65,7 +65,7 @@ own form-field limits can produce 400 before file validation.
 
 All file API responses are no-store/nosniff/no-referrer. Downloads use
 `application/octet-stream` and attachment disposition, not inline content. CORS
-exposes Content-Disposition. No ETag caching from Phase 10 is enabled for files.
+exposes Content-Disposition. No performance-layer ETag caching is enabled for files.
 The download route stages a bounded snapshot and verifies size/SHA-256 before
 returning FileResponse; late backend-read errors become 503 before response
 headers are sent. The response then streams the staged spool, which spills above
@@ -268,7 +268,7 @@ metadata/outbox/delete work for recoverability. Establish a retention strategy
 only after defining an upper bound on in-flight work, provider inventory and
 reconciliation guarantees; arbitrary tombstone deletion can orphan late writes.
 
-Outbox retry/backoff/dead-letter behavior is unchanged from Phase 9. DELETING rows
+Outbox cleanup uses the shared durable per-subscriber retry/backoff/dead-letter rules. DELETING rows
 with dead-lettered events require operator remediation and explicit
 `requeue_outbox <event-uuid>`; reconciliation does not silently override dead-letter
 policy. Monitor pending age, deleting age, dead letters, tombstone growth, object
@@ -314,7 +314,7 @@ TEST_S3_ENDPOINT_URL=http://127.0.0.1:9000 uv run --extra storage pytest \
 Before rollout, apply migrations, test the actual reverse-proxy limits and private
 bucket policy, run cleanup with the deployment identity, and verify backup/restore
 of both manifests and objects. Keep signed URLs off initially. For rollback, stop
-new uploads and drain/reconcile cleanup with compatible Phase 11 code; do not
+new uploads and drain/reconcile cleanup with storage-compatible code; do not
 blindly reverse the migration or point old code at a new public media directory.
 
 References: [OWASP file-upload guidance](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html),

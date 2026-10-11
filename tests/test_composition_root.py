@@ -77,7 +77,7 @@ def test_runtime_manifests_do_not_reference_obsolete_entrypoints():
         ROOT / "scripts/smoke_production.sh",
         ROOT / "settings/base.py",
         ROOT / "docs/storage.md",
-        ROOT / "tests/phase7_urls.py",
+        ROOT / "tests/failure_urls.py",
     )
     for path in references:
         source = path.read_text(encoding="utf-8")

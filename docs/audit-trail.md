@@ -1,4 +1,4 @@
-# Durable audit trail (Phase 16)
+# Durable audit trail
 
 The audit trail is an application-level, append-only history of successful
 business mutations. It is separate from security logs, operational logs and the
@@ -48,11 +48,11 @@ Supported exact filters are `action`, `subject_type`, `subject_id` and
 `occurred_before`. Ordering is restricted to reviewed fields.
 
 There is intentionally no update/delete audit API and no global support-user
-bypass in this phase.
+bypass in the default implementation.
 
 ## Retention
 
-Phase 16 does not guess a compliance retention period. Production deployments
+This audit implementation does not assume a compliance retention period. Production deployments
 must choose retention/export/archive policy from their legal and product
 requirements before adding a purge command. Deleting audit history by default
 would be a more dangerous starter convention than retaining it.
