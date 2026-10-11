@@ -58,9 +58,9 @@ def test_accounts_service_registration_preserves_password_policy():
     user = register_user(
         email="first@example.test",
         username="first-project-user",
-        password="FirstProject!2026-Safe",
+        password="Lake!Sky-5834-Quartz",
     )
-    assert user.check_password("FirstProject!2026-Safe")
+    assert user.check_password("Lake!Sky-5834-Quartz")
     assert not user.is_staff
     assert get_user_model().objects.filter(pk=user.pk).exists()
 
