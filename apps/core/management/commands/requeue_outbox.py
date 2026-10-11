@@ -64,6 +64,10 @@ class Command(BaseCommand):
                 return
 
             target = targets[0]
+            if target.locked_until is not None and target.locked_until > now:
+                raise CommandError(
+                    "Active subscriber lease; retry when worker finishes."
+                )
             target.dead_lettered_at = None
             target.available_at = now
             target.attempts = 0
