@@ -1,5 +1,6 @@
 name: retention
-type: integration
+kind: support
+architecture: medium
 owns:
   - bounded retention policy execution
   - terminal history cleanup orchestration
