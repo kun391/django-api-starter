@@ -158,16 +158,19 @@ from structural maturity (`architecture: simple | medium | complex`).
 The architecture checker also rejects cycles in the declared `depends_on`
 graph and disallows premature `domain/`, `ports/`, `adapters/` directories
 for `simple` modules. See [ARCHITECTURE.md](ARCHITECTURE.md).
-Existing `--type` values remain scaffold presets until the generator
-cleanup; they are not module kinds.
+Use `--preset` to select a scaffold. The old `--type` is a deprecated
+alias for one template release. A CRUD module starts without `services.py`;
+`domain`, `integration` and `event-consumer` scaffold a flat `services.py`,
+never empty `domain/`, `ports/` or `adapters/` packages. Override independent
+metadata with `--kind support --architecture medium` when appropriate.
 
 Create a module:
 
 ```bash
-python scripts/create_module.py products --type crud
-python scripts/create_module.py orders --type domain
-python scripts/create_module.py payments --type integration
-python scripts/create_module.py notifications --type event-consumer
+python scripts/create_module.py products --preset crud
+python scripts/create_module.py orders --preset domain
+python scripts/create_module.py payments --preset integration
+python scripts/create_module.py notifications --preset event-consumer
 ```
 
 Validate module boundaries:
