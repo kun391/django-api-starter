@@ -97,11 +97,42 @@ def check_contracts(
             if topic not in owners:
                 errors.append(f"{module}: consumes missing producer: {topic}")
 
+    # An event nobody consumes is retried and then dead-lettered by the outbox.
+    consumed = {
+        topic
+        for metadata in manifests.values()
+        if isinstance(metadata.get("consumes"), list)
+        for topic in metadata["consumes"]
+        if isinstance(topic, str)
+    }
+    for topic, module in sorted(owners.items()):
+        if topic not in consumed:
+            errors.append(f"{module}: emits topic has no consumer: {topic}")
+
     return errors
 
 
+def attribute_subscriptions(
+    registrations: dict[str, tuple[str, ...]], modules: set[str]
+) -> tuple[dict[str, set[str]], list[str]]:
+    """Map topic subscriptions to modules by the subscriber ID's module prefix."""
+    runtime: dict[str, set[str]] = {name: set() for name in modules}
+    errors: list[str] = []
+    for topic, subscriber_ids in sorted(registrations.items()):
+        for subscriber_id in subscriber_ids:
+            module = subscriber_id.split(".", 1)[0]
+            if module not in runtime:
+                errors.append(
+                    f"subscriber {subscriber_id!r} on {topic} must be prefixed "
+                    "with its owning module name"
+                )
+                continue
+            runtime[module].add(topic)
+    return runtime, errors
+
+
 def check() -> list[str]:
-    from apps.core.outbox import registered_subscriptions, subscriptions_for
+    from apps.core.outbox import registered_subscriptions
 
     paths = business_modules()
     errors: list[str] = []
@@ -113,12 +144,10 @@ def check() -> list[str]:
         manifests[name] = metadata
         literal[name] = _literal_emits(path)
 
-    runtime: dict[str, set[str]] = {name: set() for name in paths}
-    for topic in registered_subscriptions():
-        for registration in subscriptions_for(topic):
-            parts = registration.handler.__module__.split(".")
-            if len(parts) >= 3 and parts[0] == "apps" and parts[1] in runtime:
-                runtime[parts[1]].add(topic)
+    runtime, attribution_errors = attribute_subscriptions(
+        registered_subscriptions(), set(paths)
+    )
+    errors.extend(attribution_errors)
 
     return errors + check_contracts(manifests, runtime, literal)
 

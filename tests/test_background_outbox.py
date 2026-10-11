@@ -56,9 +56,10 @@ class TestBackgroundAndOutbox:
     def test_successful_handler_marks_event_published(self):
         received = []
 
-        @outbox.outbox_handler("accounts.user-created")
         def handle(envelope):
             received.append(envelope)
+
+        outbox.subscribe("accounts.user-created", handle, subscriber_id="accounts.test")
 
         with transaction.atomic():
             event = outbox.record_outbox_event(
@@ -85,9 +86,10 @@ class TestBackgroundAndOutbox:
         settings.OUTBOX_RETRY_MAX_SECONDS = 10
         settings.OUTBOX_MAX_ATTEMPTS = 3
 
-        @outbox.outbox_handler("accounts.user-created")
         def fail(_envelope):
             raise RuntimeError("secret-provider-detail")
+
+        outbox.subscribe("accounts.user-created", fail, subscriber_id="accounts.test")
 
         with transaction.atomic():
             event = outbox.record_outbox_event(
@@ -107,9 +109,10 @@ class TestBackgroundAndOutbox:
     def test_event_dead_letters_after_max_attempts(self, settings):
         settings.OUTBOX_MAX_ATTEMPTS = 1
 
-        @outbox.outbox_handler("accounts.user-created")
         def fail(_envelope):
             raise RuntimeError("failed")
+
+        outbox.subscribe("accounts.user-created", fail, subscriber_id="accounts.test")
 
         with transaction.atomic():
             event = outbox.record_outbox_event(
