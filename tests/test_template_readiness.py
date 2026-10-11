@@ -9,7 +9,6 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.template.loader import get_template
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
