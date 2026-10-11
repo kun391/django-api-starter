@@ -1,37 +1,34 @@
 #!/usr/bin/env python
-"""Create a small Django module using one of the supported architecture presets."""
+"""Scaffold Django-first modules without speculative package layers."""
 
 from __future__ import annotations
 
 import argparse
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 APPS_DIR = ROOT / "apps"
 
+# Presets describe a starting scaffold, not the module's responsibility.
+# Add selectors, providers, transports and domain/ports/adapters only when
+# application behavior justifies them.
 PRESETS = {
     "crud": ("api", "tests", "migrations"),
-    "domain": ("api", "services", "selectors", "domain", "tests", "migrations"),
-    "integration": (
-        "api",
-        "services",
-        "ports",
-        "adapters",
-        "tests",
-        "migrations",
-    ),
-    "event-consumer": ("services", "tests"),
+    "domain": ("api", "tests", "migrations"),
+    "integration": ("api", "tests", "migrations"),
+    "event-consumer": ("tests",),
 }
 
-# Keep existing scaffolding/CLI behavior until the dedicated generator PR.
-# This metadata must already satisfy the architecture contract introduced here.
 PRESET_METADATA = {
     "crud": ("business", "simple"),
-    "domain": ("business", "complex"),
-    "integration": ("integration", "complex"),
+    "domain": ("business", "medium"),
+    "integration": ("integration", "medium"),
     "event-consumer": ("integration", "medium"),
 }
+MODULE_KINDS = ("business", "integration", "support")
+ARCHITECTURE_LEVELS = ("simple", "medium", "complex")
 
 
 def validate_name(value: str) -> str:
@@ -47,7 +44,23 @@ def write(path: Path, content: str = "") -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def create_module(name: str, preset: str) -> Path:
+def create_module(
+    name: str,
+    preset: str,
+    *,
+    kind: str | None = None,
+    architecture: str | None = None,
+) -> Path:
+    if preset not in PRESETS:
+        raise ValueError(f"Unknown scaffold preset: {preset}")
+    default_kind, default_architecture = PRESET_METADATA[preset]
+    module_kind = kind or default_kind
+    module_architecture = architecture or default_architecture
+    if module_kind not in MODULE_KINDS:
+        raise ValueError(f"Invalid module kind: {module_kind}")
+    if module_architecture not in ARCHITECTURE_LEVELS:
+        raise ValueError(f"Invalid architecture level: {module_architecture}")
+
     module_dir = APPS_DIR / name
     if module_dir.exists():
         raise FileExistsError(f"module already exists: {module_dir}")
@@ -80,22 +93,28 @@ class {''.join(part.title() for part in name.split('_'))}Config(AppConfig):
 urlpatterns = []
 ''')
 
+    if preset in {"domain", "integration", "event-consumer"}:
+        write(
+            module_dir / "services.py",
+            '''"""Application services; add behavior only when it is needed."""
+''',
+        )
+
     if preset == "event-consumer":
         write(
             module_dir / "tasks.py",
             '''"""Background task entrypoints.
 
-Keep business logic in services; task functions should stay thin.
+Keep task functions thin; delegate business logic to services.py.
 """
 ''',
         )
 
-    kind, architecture = PRESET_METADATA[preset]
     write(
         module_dir / "module.yaml",
         f"""name: {name}
-kind: {kind}
-architecture: {architecture}
+kind: {module_kind}
+architecture: {module_architecture}
 depends_on: []
 uses: []
 emits: []
@@ -108,14 +127,18 @@ consumes: []
 
 ## Purpose
 
-Describe the business capability owned by this module.
+Describe the business or integration capability owned by this module.
 
 ## Architecture
 
-Preset: `{preset}`
+Kind: `{module_kind}`
+Architecture level: `{module_architecture}`
+Scaffold preset: `{preset}`
 
-Only keep directories that contain real responsibilities. Remove generated
-layers that are not needed before adding business code.
+The preset is a starting point, not a mandatory pattern. Prefer flat files
+(`services.py`, `selectors.py`, `provider.py`, `transport.py`) and add
+layers only when there are real responsibilities. Do not create empty
+`domain/`, `ports/` or `adapters/` packages.
 
 ## Public API
 
@@ -127,8 +150,9 @@ Document business rules that an engineer or coding agent must preserve.
 
 ## Dependencies
 
-Internal module dependencies belong in `module.yaml -> depends_on`.
+Internal Python module dependencies belong in `module.yaml -> depends_on`.
 External/framework dependencies belong in `module.yaml -> uses`.
+Event subscriptions belong in `consumes`, not `depends_on`.
 """,
     )
 
@@ -138,19 +162,33 @@ External/framework dependencies belong in `module.yaml -> uses`.
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("name", type=validate_name)
-    parser.add_argument("--type", choices=sorted(PRESETS), default="crud")
+    parser.add_argument("--preset", choices=sorted(PRESETS))
+    parser.add_argument(
+        "--type", dest="legacy_type", choices=sorted(PRESETS),
+        help="Deprecated alias for --preset (one template release only)",
+    )
+    parser.add_argument("--kind", choices=MODULE_KINDS)
+    parser.add_argument("--architecture", choices=ARCHITECTURE_LEVELS)
     args = parser.parse_args()
 
+    if args.preset is not None and args.legacy_type is not None:
+        parser.error("Use --preset or deprecated --type, not both")
+    if args.legacy_type is not None:
+        print("warning: --type is deprecated; use --preset", file=sys.stderr)
+
+    preset = args.preset or args.legacy_type or "crud"
     try:
-        module_dir = create_module(args.name, args.type)
-    except FileExistsError as exc:
+        module_dir = create_module(
+            args.name, preset, kind=args.kind, architecture=args.architecture,
+        )
+    except (FileExistsError, ValueError) as exc:
         parser.error(str(exc))
 
     print(f"Created {module_dir.relative_to(ROOT)}")
     print("Next:")
     print(f'  1. Add "apps.{args.name}" to LOCAL_APPS if this is a Django app.')
     print("  2. Wire API URLs only when the module exposes HTTP endpoints.")
-    print("  3. Remove unused generated layers before adding business code.")
+    print("  3. Delete unused scaffolding before adding business code.")
     return 0
 
 
