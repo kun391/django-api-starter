@@ -14,7 +14,7 @@ purpose/validator. Authorization for attachment to an order/document belongs to
 that business module, not to client-provided object keys or owner IDs.
 
 
-## Phase 21 tombstone retention
+## Deleted-file tombstone retention
 
 Successful storage deletion now records the first verified `deleted_at`
 timestamp while preserving the existing periodic recheck behavior. The retention
