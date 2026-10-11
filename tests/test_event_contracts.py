@@ -64,7 +64,7 @@ def test_duplicate_and_misowned_event_declarations_fail():
 
 
 def test_emitted_topic_without_consumer_fails():
-    manifests = {
+    manifests: dict[str, dict] = {
         "orders": {"emits": ["orders.created"], "consumes": []},
         "notifications": {"emits": [], "consumes": []},
     }
