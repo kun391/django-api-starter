@@ -1,5 +1,3 @@
-from importlib.util import find_spec
-
 from django.db import connection
 from django.db.utils import DatabaseError
 from django.http import JsonResponse
@@ -60,19 +58,3 @@ def database_health(request):
     """Backward-compatible DB endpoint. Prefer /health/ready/."""
     return _ready_response()
 
-
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def celery_health(request):
-    """Optional worker diagnostic, not a required API readiness dependency."""
-    if find_spec("celery") is None:
-        return _response({"status": "disabled", "celery": "not installed"}, status=503)
-    try:
-        from apps.core.celery import app
-
-        stats = app.control.inspect(timeout=2).stats()
-        if stats is None:
-            return _response({"status": "unhealthy", "celery": "no workers available"}, status=503)
-        return _response({"status": "healthy", "celery": "running", "workers": len(stats)})
-    except Exception:
-        return _response({"status": "unhealthy", "celery": "unavailable"}, status=503)
