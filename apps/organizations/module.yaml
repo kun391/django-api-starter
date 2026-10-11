@@ -1,5 +1,6 @@
 name: organizations
-type: domain
+kind: business
+architecture: medium
 owns:
   - organization tenant identity
   - organization memberships
