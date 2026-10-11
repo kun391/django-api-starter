@@ -1,4 +1,4 @@
-# Multi-tenancy and RBAC foundation (Phase 14)
+# Multi-tenancy and RBAC
 
 ## Boundary
 
@@ -31,7 +31,7 @@ product rule requires them.
 Business rows that may be either personal or tenant-owned should make the boundary
 explicit. The reference `Ticket` uses nullable `organization_id`:
 
-- null means the original personal Phase 13 scope;
+- null means personal-ticket scope;
 - non-null means tenant scope.
 
 Personal queries always filter `organization_id IS NULL`. Tenant queries always
