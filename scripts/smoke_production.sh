@@ -82,6 +82,12 @@ for variant in "${variants[@]}"; do
     fi
     run python manage.py release_check
     run python manage.py release_migrate
+    # Validate the *real built async image*, not just the Django test client.
+    # Celery report loads config.celery:app without contacting the broker.
+    if [ "$variant" = runtime-async ] || [ "$variant" = runtime-full ]; then
+        run celery -A config.celery:app report >/dev/null
+        run python -c "from config.celery import app; assert app.main == 'core'; assert 'core.dispatch_outbox' in app.tasks"
+    fi
     docker run -d --name "$web" --network "$network" --env-file "$tmp/runtime.env" \
         --read-only --cap-drop ALL --security-opt no-new-privileges:true \
         --tmpfs /tmp:rw,noexec,nosuid,size=128m,mode=1777 \
