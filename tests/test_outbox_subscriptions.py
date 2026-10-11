@@ -91,7 +91,7 @@ def test_invalid_registration_is_rejected(topic, subscriber_id, order, expected)
 
 def test_subscriber_must_be_callable():
     with pytest.raises(TypeError, match="callable"):
-        outbox.subscribe("orders.order-created", None, subscriber_id="bad")
+        outbox.subscribe("orders.order-created", None, subscriber_id="bad")  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
