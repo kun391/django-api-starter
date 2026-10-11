@@ -70,7 +70,7 @@ services:
     profiles: ["async"]
     env_file:
       - .env
-    command: ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
+    command: ["celery", "-A", "config.celery:app", "worker", "--loglevel=info"]
     volumes:
       - .:/app
       - private_files_volume:/app/private-files
@@ -91,7 +91,7 @@ services:
     profiles: ["async"]
     env_file:
       - .env
-    command: ["celery", "-A", "apps.core.celery:app", "beat", "--loglevel=info"]
+    command: ["celery", "-A", "config.celery:app", "beat", "--loglevel=info"]
     volumes:
       - .:/app
     depends_on:
