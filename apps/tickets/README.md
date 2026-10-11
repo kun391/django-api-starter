@@ -1,6 +1,6 @@
 # Tickets reference business module
 
-This is the Phase 13 end-to-end reference module. It intentionally uses the
+This is an end-to-end reference business module. It intentionally uses the
 starter's existing foundations together instead of introducing another framework.
 
 ## What it proves
@@ -37,7 +37,7 @@ idempotent no-ops so the default dispatcher can drain demonstration events
 without inventing an external integration. Replace them with real idempotent
 consumers when a product integration exists.
 
-## Phase 14 tenant mode
+## Organization-scoped tickets
 
 Personal routes remain backward compatible and only operate on tickets where
 `organization_id IS NULL`.
@@ -52,7 +52,7 @@ resolved organization UUID, and tenant summary caching is scoped and invalidated
 per organization.
 
 
-## Phase 15 write concurrency
+## Optimistic write concurrency
 
 Ticket create/detail/PATCH responses issue a strong resource ETag. PATCH requires
 `If-Match`; the service compares it only after authorization and
@@ -63,7 +63,7 @@ Every representation-changing ticket mutation increments `revision`, including
 attachment linking. Personal and tenant tickets use the same concurrency contract.
 
 
-## Phase 16 durable audit
+## Durable audit history
 
 Ticket create, update and attachment-link mutations append a bounded audit event
 inside the same transaction as the authoritative write and outbox event. Tenant
