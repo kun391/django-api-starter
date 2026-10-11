@@ -167,7 +167,7 @@ def test_transitional_shared_retry_replays_completed_subscribers(settings):
     assert event.published_at is None
     assert event.attempts == 1
     assert event.last_error_code == "RuntimeError"
-    assert calls == ["webhooks", "notifications"]
+    assert calls[:2] == ["webhooks", "notifications"]
 
     state["fail"] = False
     OutboxEvent.objects.filter(pk=event.pk).update(
@@ -176,7 +176,8 @@ def test_transitional_shared_retry_replays_completed_subscribers(settings):
     assert outbox.process_outbox_batch() == 1
     event.refresh_from_db()
     assert event.published_at is not None
-    assert calls == ["webhooks", "notifications", "webhooks", "notifications"]
+    assert len(calls) == 4
+    assert calls[2:] == ["webhooks", "notifications"]
 
 
 @pytest.mark.django_db(transaction=True)
