@@ -102,9 +102,11 @@ copies of repository context.
 
 For new modules, prefer:
 
-`python scripts/create_module.py <name> --type <preset>`
+`python scripts/create_module.py <name> --preset <preset>`
 
-Then remove any generated layer that the module does not actually need.
+The default CRUD scaffold intentionally omits services and speculative layers.
+Use `--kind` / `--architecture` only when overriding the preset defaults;
+add flat service/provider/selector files when business behavior requires them.
 
 ## Dependencies
 
