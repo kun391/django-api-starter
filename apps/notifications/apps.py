@@ -6,20 +6,10 @@ class NotificationsConfig(AppConfig):
     name = "apps.notifications"
 
     def ready(self):
-        from apps.core import outbox
+        from apps.core.outbox import subscribe
 
         from .services import fanout_event
         from .topics import SUPPORTED_NOTIFICATION_TOPICS
 
         for topic in SUPPORTED_NOTIFICATION_TOPICS:
-            original = outbox._HANDLERS.get(topic)
-            if original is None:
-                continue
-            if getattr(original, "__module__", "") == __name__:
-                continue
-
-            def combined(envelope, *, original_handler=original):
-                original_handler(envelope)
-                fanout_event(envelope)
-
-            outbox._HANDLERS[topic] = combined
+            subscribe(topic, fanout_event, subscriber_id="notifications", order=20)
