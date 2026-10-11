@@ -2,12 +2,13 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
-from config.health import celery_health
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+
+from .health import celery_health
 
 handler400 = "apps.core.api.errors.bad_request"
 handler403 = "apps.core.api.errors.permission_denied"
