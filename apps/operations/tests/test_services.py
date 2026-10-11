@@ -6,7 +6,7 @@ from django.apps import apps
 from django.core.exceptions import ImproperlyConfigured
 from django.utils import timezone
 
-from apps.core.models import OutboxEvent
+from apps.core.models import OutboxDelivery, OutboxEvent
 from apps.notifications.models import NotificationDelivery
 from apps.operations.services import operations_snapshot, snapshot_dict
 from apps.webhooks.models import WebhookDelivery, WebhookSubscription
@@ -168,3 +168,31 @@ def test_snapshot_dict_is_aggregate_only(user):
 
     assert user.email not in rendered
     assert "do-not-expose" not in rendered
+
+
+def test_independent_subscriber_dead_letters_are_visible_before_event_terminal():
+    event = OutboxEvent.objects.create(
+        topic="tickets.ticket-created", payload={}
+    )
+    now = timezone.now()
+    OutboxDelivery.objects.create(
+        event=event,
+        subscriber_id="notifications",
+        attempts=2,
+        dead_lettered_at=now,
+        last_error_code="RuntimeError",
+    )
+    OutboxDelivery.objects.create(
+        event=event,
+        subscriber_id="webhooks",
+        available_at=now - timedelta(seconds=10),
+    )
+
+    snapshot = operations_snapshot()
+    assert snapshot.queues["outbox:notifications"].terminal_failures == 1
+    assert snapshot.queues["outbox:notifications"].status == "critical"
+    assert snapshot.queues["outbox:webhooks"].pending == 1
+    assert snapshot.queues["outbox:webhooks"].terminal_failures == 0
+    assert snapshot.status == "critical"
+    rendered = str(snapshot_dict())
+    assert "RuntimeError" not in rendered
