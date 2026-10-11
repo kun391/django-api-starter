@@ -62,8 +62,13 @@ client-supplied forwarded address, tenant or role without an explicit trusted bo
 
 Read `docs/background-jobs.md` before introducing asynchronous work or domain events.
 Use on-commit enqueue only for best-effort jobs. Use the transactional outbox when
-delivery must commit with the business mutation. Outbox handlers are at-least-once and
-must be idempotent; never claim exactly-once delivery.
+delivery must commit with the business mutation. Consumers register using public
+`outbox.subscribe(topic, handler, subscriber_id=...)` in `AppConfig.ready()`,
+never by wrapping or modifying private registry internals. Producers must not
+register empty callbacks as placeholders. Subscriber IDs must be stable and
+fanout must remain idempotent: outbox delivery is at-least-once. Until the
+per-subscriber delivery-state refactor, retries/dead letters remain event-level
+and replay the entire ordered subscriber group. Never claim exactly-once delivery.
 
 ## Caching and performance
 
