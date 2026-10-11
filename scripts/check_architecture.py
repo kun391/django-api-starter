@@ -85,7 +85,12 @@ def load_metadata(module: str, path: Path) -> tuple[dict, list[str]]:
     return metadata, errors
 
 
-def imported_modules(path: Path) -> set[str]:
+def project_imports(path: Path) -> set[str]:
+    """Find static project imports, including common literal dynamic imports.
+
+    The checker only treats explicit imports as dependencies, not arbitrary
+    mentions in docstrings, comments or configuration strings.
+    """
     imports: set[str] = set()
 
     for source in path.rglob("*.py"):
@@ -93,23 +98,67 @@ def imported_modules(path: Path) -> set[str]:
             continue
 
         try:
-            tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+            tree = ast.parse(
+                source.read_text(encoding="utf-8"), filename=str(source)
+            )
         except SyntaxError:
             continue
 
         for node in ast.walk(tree):
-            names: list[str] = []
             if isinstance(node, ast.Import):
-                names = [alias.name for alias in node.names]
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                names = [node.module]
-
-            for name in names:
-                parts = name.split(".")
-                if len(parts) >= 2 and parts[0] == "apps":
-                    imports.add(parts[1])
+                imports.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                if node.module:
+                    imports.add(node.module)
+                    if node.module in {"apps", "config"}:
+                        imports.update(
+                            f"{node.module}.{alias.name}"
+                            for alias in node.names if alias.name != "*"
+                        )
+            elif isinstance(node, ast.Call) and node.args:
+                func = node.func
+                name = (
+                    func.id if isinstance(func, ast.Name)
+                    else func.attr if isinstance(func, ast.Attribute)
+                    else None
+                )
+                if name in {"import_module", "import_string", "__import__"}:
+                    literal = node.args[0]
+                    if (
+                        isinstance(literal, ast.Constant)
+                        and isinstance(literal.value, str)
+                    ):
+                        imports.add(literal.value)
 
     return imports
+
+
+def imported_modules(path: Path) -> set[str]:
+    """Collect imported apps.<module> targets for dependency validation."""
+    modules: set[str] = set()
+    for name in project_imports(path):
+        parts = name.split(".")
+        if len(parts) >= 2 and parts[0] == "apps":
+            modules.add(parts[1])
+    return modules
+
+
+def core_import_violations(
+    path: Path, known_modules: set[str]
+) -> set[str]:
+    """Core is a downstream primitive layer, never the composition root."""
+    forbidden: set[str] = set()
+    for name in project_imports(path):
+        parts = name.split(".")
+        if parts[0] == "config":
+            forbidden.add(name)
+        elif (
+            len(parts) >= 2
+            and parts[0] == "apps"
+            and parts[1] in known_modules
+        ):
+            forbidden.add(name)
+    return forbidden
 
 
 def dependency_cycles(graph: dict[str, set[str]]) -> list[str]:
@@ -180,6 +229,15 @@ def check() -> list[str]:
 
     for cycle in dependency_cycles(graph):
         errors.append(f"dependency cycle: {cycle}")
+
+    core_path = APPS_DIR / "core"
+    if core_path.exists():
+        forbidden = core_import_violations(core_path, known_modules)
+        if forbidden:
+            errors.append(
+                "core: must not import business modules or the config "
+                "composition root: " + ", ".join(sorted(forbidden))
+            )
 
     return errors
 
