@@ -174,8 +174,9 @@ def test_transitional_shared_retry_replays_completed_subscribers(settings):
         available_at=timezone.now() - timedelta(seconds=1)
     )
     assert outbox.process_outbox_batch() == 1
-    event.refresh_from_db()
-    assert event.published_at is not None
+    # Re-query; MyPy cannot infer that refresh_from_db() invalidates the earlier
+    # "published_at is None" narrowing.
+    assert OutboxEvent.objects.get(pk=event.pk).published_at is not None
     assert len(calls) == 4
     assert calls[2:] == ["webhooks", "notifications"]
 
