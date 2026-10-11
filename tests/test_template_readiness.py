@@ -9,8 +9,6 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.template.loader import get_template
 
-from apps.accounts.services import register_user
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -39,6 +37,8 @@ def test_failure_fixture_has_descriptive_name():
 
 
 def test_service_layout_is_flat_and_importable():
+    from apps.accounts.services import register_user
+
     assert (ROOT / "apps/accounts/services.py").is_file()
     assert not (ROOT / "apps/accounts/services").exists()
     assert callable(register_user)
@@ -54,6 +54,8 @@ def test_app_template_discovery_does_not_require_absent_project_directory():
 
 @pytest.mark.django_db
 def test_accounts_service_registration_preserves_password_policy():
+    from apps.accounts.services import register_user
+
     user = register_user(
         email="first@example.test",
         username="first-project-user",
