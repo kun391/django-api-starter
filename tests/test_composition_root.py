@@ -61,6 +61,9 @@ def test_optional_celery_entrypoint_when_extra_installed():
     pytest.importorskip("celery")
     from config.celery import app
 
+    # Celery autodiscovers tasks when its worker loader starts. Force that
+    # import here because the test is not running a broker-connected worker.
+    app.autodiscover_tasks(force=True)
     assert app.main == "core"
     assert "core.dispatch_outbox" in app.tasks
 
