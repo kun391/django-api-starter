@@ -20,7 +20,7 @@ x-runtime: &runtime
 services:
   web:
     <<: *runtime
-    command: ["gunicorn", "--config", "config/gunicorn.py", "apps.core.wsgi:application"]
+    command: ["gunicorn", "--config", "config/gunicorn.py", "config.wsgi:application"]
     restart: unless-stopped
     # Host TLS proxy only. Do not expose the application directly to the Internet.
     ports:
@@ -35,13 +35,13 @@ services:
   worker:
     <<: *runtime
     profiles: [async]
-    command: ["celery", "-A", "apps.core.celery:app", "worker", "--loglevel=info"]
+    command: ["celery", "-A", "config.celery:app", "worker", "--loglevel=info"]
     restart: unless-stopped
 
   beat:
     <<: *runtime
     profiles: [async]
-    command: ["celery", "-A", "apps.core.celery:app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+    command: ["celery", "-A", "config.celery:app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
     restart: unless-stopped
 
 volumes:
