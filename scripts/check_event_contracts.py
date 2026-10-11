@@ -73,7 +73,7 @@ def check_contracts(
 
     for module, metadata in sorted(manifests.items()):
         values = metadata.get("emits")
-        emitted = set(v for v in values if isinstance(v, str)) if isinstance(
+        emitted = {v for v in values if isinstance(v, str)} if isinstance(
             values, list
         ) else set()
         actual_literals = literal_emits.get(module, set())
