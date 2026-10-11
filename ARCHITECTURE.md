@@ -19,8 +19,11 @@ Every non-core module declares two **independent** fields in `module.yaml`:
 
 For example, a module can be an `integration` with `medium` architecture.
 The metadata `type` field is retired because it mixed responsibilities with
-complexity. The generator's existing `--type` flag still selects a scaffold
-preset **temporarily**; that CLI flag is not a metadata classification.
+complexity. Use `--preset` to select a scaffold independently of the module metadata.
+The old `--type` option is a deprecated, one-template-release alias; it is
+**not** a module kind or complexity level. Presets create only flat files and
+necessary Django packages, never speculative `domain/`, `ports/` or
+`adapters/` directories.
 
 ```yaml
 name: tickets
