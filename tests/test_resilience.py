@@ -7,7 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.core import outbox
-from apps.core.models import OutboxEvent
+from apps.core.models import OutboxDelivery, OutboxEvent
 from apps.notifications.models import NotificationDelivery
 from apps.notifications.services import (
     claim_delivery_batch as claim_notification_batch,
@@ -229,13 +229,26 @@ def test_partial_fanout_failure_retries_without_duplicate_side_effects(user):
     assert event.attempts == 1
     assert WebhookDelivery.objects.filter(source_event_id=event.pk).count() == 1
     assert NotificationDelivery.objects.count() == 0
+    webhook = OutboxDelivery.objects.get(event=event, subscriber_id="webhooks")
+    notification = OutboxDelivery.objects.get(event=event, subscriber_id="notifications")
+    assert webhook.succeeded_at is not None
+    assert webhook.attempts == 1
+    assert notification.succeeded_at is None
+    assert notification.attempts == 1
 
-    OutboxEvent.objects.filter(pk=event.pk).update(
-        available_at=timezone.now() - timedelta(seconds=1)
-    )
+    due = timezone.now() - timedelta(seconds=1)
+    OutboxEvent.objects.filter(pk=event.pk).update(available_at=due)
+    OutboxDelivery.objects.filter(
+        event=event, subscriber_id="notifications"
+    ).update(available_at=due)
     assert outbox.process_outbox_batch() == 1
 
     event.refresh_from_db()
     assert getattr(event, "published_at", None) is not None
     assert WebhookDelivery.objects.filter(source_event_id=event.pk).count() == 1
     assert NotificationDelivery.objects.filter(source_event_id=event.pk).count() == 1
+    webhook.refresh_from_db()
+    notification.refresh_from_db()
+    assert webhook.attempts == 1
+    assert notification.attempts == 2
+    assert notification.succeeded_at is not None
