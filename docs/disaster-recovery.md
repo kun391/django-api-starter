@@ -1,4 +1,4 @@
-# Phase 24 — Backup / Restore / Disaster Recovery
+# Backup / Restore / Disaster Recovery
 
 This starter provides **operator tools and a runbook**, not a backup service or
 a claim that production recovery is configured. Backups MUST live outside the
