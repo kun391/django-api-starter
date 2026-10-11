@@ -54,7 +54,7 @@ class StaffReadModelView(ReadModelView):
     permission_classes = [permissions.IsAdminUser]
 
 
-# Only test routes; this phase does not add dummy business resources to production.
+# These test routes never mount dummy business resources in production.
 urlpatterns = [
     path("api/v1/catalog/", ReadModelView.as_view()),
     path("api/v1/staff-catalog/", StaffReadModelView.as_view()),
