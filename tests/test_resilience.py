@@ -71,7 +71,7 @@ def test_outbox_worker_crash_is_recovered_after_lease_expiry():
         assert event.attempts == 1
         assert received == [str(event.pk)]
     finally:
-        outbox._HANDLERS.pop("resilience.test-created", None)
+        outbox._SUBSCRIBERS.pop("resilience.test-created", None)
 
 
 def test_webhook_worker_crash_is_recovered_without_duplicate_send(user):
