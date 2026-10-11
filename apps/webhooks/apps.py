@@ -6,20 +6,12 @@ class WebhooksConfig(AppConfig):
     name = "apps.webhooks"
 
     def ready(self):
-        from apps.core import outbox
+        from apps.core.outbox import subscribe
 
         from .services import fanout_event
         from .topics import SUPPORTED_WEBHOOK_TOPICS
 
         for topic in SUPPORTED_WEBHOOK_TOPICS:
-            original = outbox._HANDLERS.get(topic)
-            if original is None:
-                continue
-            if getattr(original, "__module__", "") == __name__:
-                continue
-
-            def combined(envelope, *, original_handler=original):
-                original_handler(envelope)
-                fanout_event(envelope)
-
-            outbox._HANDLERS[topic] = combined
+            # Run before notification fanout to preserve the prior contract.
+            # Registration does not require the producer to be imported first.
+            subscribe(topic, fanout_event, subscriber_id="webhooks", order=10)

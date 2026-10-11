@@ -6,4 +6,12 @@ class FilesConfig(AppConfig):
     name = "apps.files"
 
     def ready(self):
-        from . import handlers  # noqa: F401
+        from apps.core.outbox import subscribe
+
+        from .handlers import on_deletion_requested
+
+        subscribe(
+            "files.deletion-requested",
+            on_deletion_requested,
+            subscriber_id="files.delete-stored-object",
+        )

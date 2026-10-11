@@ -1,7 +1,8 @@
-"""Transactional outbox with leased claims and at-least-once handlers."""
+"""Transactional outbox with leased claims and process-local subscriptions."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import uuid
@@ -20,7 +21,20 @@ from apps.core.observability import get_request_id
 from apps.core.telemetry import counter_add, inject_trace_context, span
 
 _TOPIC_RE = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+){1,15}$")
-_HANDLERS: dict[str, Callable[[dict[str, Any]], None]] = {}
+_SUBSCRIBER_RE = re.compile(r"^[a-z][a-z0-9._-]{0,95}$")
+OutboxHandler = Callable[[dict[str, Any]], object]
+
+
+@dataclass(frozen=True)
+class Subscription:
+    """Named process-local subscriber; IDs are stable across deployments."""
+
+    subscriber_id: str
+    handler: OutboxHandler
+    order: int = 100
+
+
+_SUBSCRIBERS: dict[str, dict[str, Subscription]] = {}
 
 
 @dataclass(frozen=True)
@@ -30,15 +44,65 @@ class ClaimedEvent:
     envelope: dict[str, Any]
 
 
-def outbox_handler(topic: str):
-    """Register exactly one process-local handler for a durable event topic."""
+def subscribe(
+    topic: str,
+    handler: OutboxHandler,
+    *,
+    subscriber_id: str,
+    order: int = 100,
+) -> None:
+    """Subscribe independently of producer imports and INSTALLED_APPS order.
 
+    Repeating the exact registration is safe when AppConfig.ready() runs again.
+    Changing the handler/order for an existing identity is always an error.
+    """
     _validate_topic(topic)
+    if not isinstance(subscriber_id, str) or not _SUBSCRIBER_RE.fullmatch(
+        subscriber_id
+    ):
+        raise ValueError("subscriber_id must be a stable, lowercase identifier")
+    if not callable(handler):
+        raise TypeError("Outbox subscriber handler must be callable")
+    if isinstance(order, bool) or not isinstance(order, int) or not 0 <= order <= 1000:
+        raise ValueError("Outbox subscriber order must be an integer in 0-1000")
 
-    def decorator(handler: Callable[[dict[str, Any]], None]):
-        if topic in _HANDLERS:
-            raise ImproperlyConfigured(f"Outbox handler already registered for {topic!r}.")
-        _HANDLERS[topic] = handler
+    by_topic = _SUBSCRIBERS.setdefault(topic, {})
+    existing = by_topic.get(subscriber_id)
+    if existing is not None:
+        if existing.handler is handler and existing.order == order:
+            return
+        raise ImproperlyConfigured(
+            f"Outbox subscriber {subscriber_id!r} already registered for {topic!r}."
+        )
+    by_topic[subscriber_id] = Subscription(subscriber_id, handler, order)
+
+
+def subscriptions_for(topic: str) -> tuple[Subscription, ...]:
+    """Immutable, deterministically ordered view of a topic's subscribers."""
+    _validate_topic(topic)
+    return tuple(
+        sorted(
+            _SUBSCRIBERS.get(topic, {}).values(),
+            key=lambda registration: (registration.order, registration.subscriber_id),
+        )
+    )
+
+
+def registered_subscriptions() -> dict[str, tuple[str, ...]]:
+    """Inspect topic -> stable subscriber IDs without touching private state."""
+    return {
+        topic: tuple(item.subscriber_id for item in subscriptions_for(topic))
+        for topic in sorted(_SUBSCRIBERS)
+    }
+
+
+def outbox_handler(topic: str):
+    """Legacy decorator retained temporarily; prefer subscribe() with an ID."""
+
+    def decorator(handler: OutboxHandler) -> OutboxHandler:
+        identity = f"{handler.__module__}.{handler.__qualname__}"
+        stable_id = "legacy." + hashlib.sha256(identity.encode()).hexdigest()[:24]
+        subscribe(topic, handler, subscriber_id=stable_id)
         return handler
 
     return decorator
@@ -244,11 +308,11 @@ def process_outbox_batch(*, batch_size: int | None = None) -> int:
     successful = 0
     for claimed in claim_outbox_batch(batch_size=batch_size):
         topic = str(claimed.envelope["topic"])
-        handler = _HANDLERS.get(topic)
-        if handler is None:
+        subscribers = subscriptions_for(topic)
+        if not subscribers:
             _finish_failure(
                 claimed,
-                LookupError(f"No outbox handler registered for {topic!r}."),
+                LookupError(f"No outbox subscriber registered for {topic!r}."),
             )
             continue
         trace_carrier = {
@@ -267,7 +331,12 @@ def process_outbox_batch(*, batch_size: int | None = None) -> int:
                     "messaging.message.id": str(claimed.event_id),
                 },
             ):
-                handler(claimed.envelope)
+                # PR #43 preserves event-level retry semantics. A failing
+                # subscriber aborts this attempt; the entire ordered group
+                # runs again at least once. PR #44 introduces per-subscriber
+                # durable delivery and independent retry/dead-letter state.
+                for subscriber in subscribers:
+                    subscriber.handler(claimed.envelope)
         except Exception as exc:
             _finish_failure(claimed, exc)
         else:
