@@ -24,6 +24,15 @@ PRESETS = {
     "event-consumer": ("services", "tests"),
 }
 
+# Keep existing scaffolding/CLI behavior until the dedicated generator PR.
+# This metadata must already satisfy the architecture contract introduced here.
+PRESET_METADATA = {
+    "crud": ("business", "simple"),
+    "domain": ("business", "complex"),
+    "integration": ("integration", "complex"),
+    "event-consumer": ("integration", "medium"),
+}
+
 
 def validate_name(value: str) -> str:
     if not re.fullmatch(r"[a-z][a-z0-9_]*", value):
@@ -81,10 +90,12 @@ Keep business logic in services; task functions should stay thin.
 ''',
         )
 
+    kind, architecture = PRESET_METADATA[preset]
     write(
         module_dir / "module.yaml",
         f"""name: {name}
-type: {preset}
+kind: {kind}
+architecture: {architecture}
 depends_on: []
 uses: []
 emits: []
