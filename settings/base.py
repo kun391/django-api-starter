@@ -65,7 +65,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "apps.core.urls"
+ROOT_URLCONF = "config.urls"
 CSRF_FAILURE_VIEW = "apps.core.api.errors.csrf_failure"
 
 TEMPLATES = [
@@ -84,7 +84,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "apps.core.wsgi.application"
+WSGI_APPLICATION = "config.wsgi.application"
 
 AUTH_USER_MODEL = "accounts.User"
 
