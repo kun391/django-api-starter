@@ -6,7 +6,7 @@ from rest_framework.exceptions import Throttled, ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
-from apps.core.urls import handler400, handler403, handler404, handler500  # noqa: F401
+from config.urls import handler400, handler403, handler404, handler500  # noqa: F401
 
 
 class FailureView(APIView):
@@ -25,5 +25,5 @@ class FailureView(APIView):
 
 urlpatterns = [
     path("api/v1/test-failure/<str:kind>/", FailureView.as_view()),
-    path("", include("apps.core.urls")),
+    path("", include("config.urls")),
 ]
