@@ -73,6 +73,8 @@ jobs:
         run: uv run mypy .
       - name: Architecture
         run: uv run python scripts/check_architecture.py
+      - name: Event contracts (runtime subscriptions)
+        run: uv run python -m scripts.check_event_contracts
       - name: API schema validation
         run: uv run python manage.py spectacular --file /tmp/schema.yaml --validate --fail-on-warn
       - name: Compatibility gates
