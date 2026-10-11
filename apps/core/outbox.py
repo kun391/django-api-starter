@@ -467,7 +467,17 @@ def process_outbox_batch(*, batch_size: int | None = None) -> int:
             if key in {"traceparent", "tracestate"} and isinstance(value, str)
         }
         latest_error = ""
-        for subscriber_id in claimed.subscriber_ids:
+        # Preserve the public PR #43 ordering contract. SQL lexical ordering
+        # must not override subscriber execution priorities.
+        due_ids = sorted(
+            claimed.subscriber_ids,
+            key=lambda subscriber_id: (
+                subscribers[subscriber_id].order
+                if subscriber_id in subscribers else 100,
+                subscriber_id,
+            ),
+        )
+        for subscriber_id in due_ids:
             try:
                 subscriber = subscribers.get(subscriber_id)
                 if subscriber is None:
