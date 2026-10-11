@@ -30,6 +30,19 @@ Create an admin user with:
 make createsuperuser
 ```
 
+## Starting your first project
+
+This repository is a **starter**, not a shared framework. Create a separate
+repository for each product, keep the platform primitives and conventions, and
+replace the reference domain only when the new product needs a different one.
+
+Read the [first-project checklist](docs/first-project.md) before writing the
+first business module. It covers product naming, environment/secrets, the
+initial API/permissions contract, choosing optional capabilities, and the
+tests/release gates that should stay enabled. Use `--preset` when scaffolding
+new modules; do not rename existing migrations or remove core integrations just
+to make the template look empty.
+
 ## Dependency management
 
 `pyproject.toml` is the dependency source of truth. `uv.lock` contains the
@@ -93,7 +106,7 @@ The `async` profile adds Redis, RabbitMQ, Celery worker and Celery beat.
 
 ## Production images and release
 
-Read [the Phase 12 deployment guide](docs/deployment.md). Production has a
+Read [the deployment guide](docs/deployment.md). Production has a
 **standalone** `compose.production.yaml`; never combine it with development
 Compose. Staging uses the same security contract as production, with independent
 runtime secrets and services.
@@ -190,7 +203,7 @@ python scripts/build_ai_context.py accounts --include api/views.py
 
 ## Caching and performance
 
-[Phase 10 guide](docs/performance.md) covers opt-in JSON cache-aside, scoped
+[Caching and performance guide](docs/performance.md) covers opt-in JSON cache-aside, scoped
 post-commit invalidation, conditional GET/HEAD, and query-count guardrails.
 The performance cache defaults to disabled. Redis is optional and uses the
 existing `async` dependency extra. Accounts/auth remain no-store; security
@@ -198,7 +211,7 @@ throttles and idempotency do not depend on the cache.
 
 ## Private files and storage
 
-[Phase 11 guide](docs/storage.md) covers `/api/v1/files/`, private filesystem/S3,
+[Private storage guide](docs/storage.md) covers `/api/v1/files/`, private filesystem/S3,
 owner-only downloads, immutable replacement and outbox cleanup. The initial
 policy accepts bounded UTF-8 text and JSON, not arbitrary binaries or scanned
 malware-free documents. Signed URLs are off by default. **Default media storage
@@ -209,7 +222,7 @@ The optional local worker shares the private volume; S3 cleanup must use the sam
 bucket/configuration and storage dependencies as the API. No S3 service is added
 to the default development stack.
 
-## Reference business module (Phase 13)
+## Reference business module
 
 The `tickets` module is the end-to-end proof that the starter foundations work
 together in a real business flow: owner/staff permissions, strict API queries and
@@ -219,22 +232,22 @@ runtime/worker deployment conventions.
 
 See [apps/tickets/README.md](apps/tickets/README.md) for the API flow and invariants.
 
-## Durable audit trail (Phase 16)
+## Durable audit trail
 
-[Phase 16 guide](docs/audit-trail.md) adds append-only business change history
+[Audit trail guide](docs/audit-trail.md) adds append-only business change history
 recorded transactionally with mutations. Tenant audit history is read-only,
 strictly scoped by organization membership, and intentionally separate from
 security logs and the transactional outbox.
 
-## Compatibility gates (Phase 17)
+## Compatibility gates
 
-[Phase 17 guide](docs/compatibility.md) adds pull-request gates for backwards
+[Compatibility guide](docs/compatibility.md) adds pull-request gates for backwards
 compatibility. CI compares generated OpenAPI against the exact base revision and
 inspects changed Django migrations for rolling-deployment hazards. Deliberate
 breaking releases require the reviewed `compatibility-approved` PR label; findings
 remain visible even when the override is used.
 
-## Outbound webhooks (Phase 18)
+## Outbound webhooks
 
 The `webhooks` integration module consumes reviewed transactional-outbox events
 and fans them into a separate durable delivery queue. Tenant owner/admin can
@@ -245,7 +258,7 @@ Delivery is HMAC-signed, retryable and SSRF-hardened. Signing material is derive
 from a separate production master key and is never persisted in plaintext or
 returned by the HTTP API. See [apps/webhooks/README.md](apps/webhooks/README.md).
 
-## Notification foundation (Phase 19)
+## Notification foundation
 
 The `notifications` integration module consumes explicit-recipient domain events
 from the transactional outbox and fans them into a separate durable email queue.
@@ -256,7 +269,7 @@ Email delivery uses Django 6.1 `MAILERS`; no provider call runs inside a request
 or business transaction. See
 [apps/notifications/README.md](apps/notifications/README.md).
 
-## Operations and observability (Phase 20)
+## Operations and observability
 
 The `operations` integration module exposes staff-only aggregate health for the
 transactional outbox, outbound webhook queue and notification queue. It reports
@@ -268,25 +281,25 @@ Background Celery tasks emit low-cardinality structured completion events throug
 the existing JSON logger. See
 [apps/operations/README.md](apps/operations/README.md).
 
-## Data lifecycle and retention (Phase 21)
+## Data lifecycle and retention
 
-[Phase 21 guide](apps/retention/README.md) adds a dry-run-first, bounded retention
+[Data lifecycle guide](apps/retention/README.md) adds a dry-run-first, bounded retention
 orchestrator for expired replay/throttle state and explicitly configured terminal
 history. Retention is disabled by default for audit, outbox, webhook,
 notification and private-file tombstone history; operators must choose policy
 before enabling deletion.
 
-## Resilience and failure semantics (Phase 22)
+## Resilience and failure semantics
 
-[Phase 22 guide](docs/resilience.md) defines and tests dependency failure
+[Resilience guide](docs/resilience.md) defines and tests dependency failure
 boundaries: PostgreSQL readiness, cache fail-open behavior, private-storage
 compensation, leased worker crash recovery, downstream retry isolation and
 at-least-once fan-out idempotency. CI has a dedicated resilience gate in addition
 to the existing Redis/S3 integration jobs.
 
-## OpenTelemetry and metrics (Phase 23)
+## OpenTelemetry and metrics
 
-[Phase 23 guide](docs/telemetry.md) adds opt-in OpenTelemetry traces and
+[OpenTelemetry guide](docs/telemetry.md) adds opt-in OpenTelemetry traces and
 low-cardinality metrics with OTLP/HTTP export. The base install remains
 dependency-free from OTel; `runtime-telemetry` and `runtime-full` contain the
 optional SDK. Trace context follows HTTP -> outbox -> webhook/notification
@@ -326,7 +339,7 @@ make migrate
 make makemigrations
 make dbshell
 make architecture
-make module name=products type=crud
+make module name=products preset=crud
 make ai-context name=accounts
 ```
 
