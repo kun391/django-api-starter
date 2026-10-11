@@ -22,7 +22,7 @@ from apps.core.telemetry import counter_add, inject_trace_context, span
 
 _TOPIC_RE = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+){1,15}$")
 _SUBSCRIBER_RE = re.compile(r"^[a-z][a-z0-9._-]{0,95}$")
-OutboxHandler = Callable[[dict[str, Any]], None]
+OutboxHandler = Callable[[dict[str, Any]], object]
 
 
 @dataclass(frozen=True)
