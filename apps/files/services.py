@@ -81,7 +81,7 @@ def upload_file(*, actor, upload, purpose="document", replace_id=None):
 
     No DB transaction spans storage I/O. Only default-database operations are
     supported, matching the existing outbox. Do not wrap this in another atomic
-    block or Phase 7 idempotent_post: file writes are not database-transactional.
+    block or the shared idempotent_post helper: file writes are not database-transactional.
     """
     _require_autocommit()
     if not actor.is_authenticated or not actor.is_active:
