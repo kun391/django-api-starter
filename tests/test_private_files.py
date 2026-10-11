@@ -18,7 +18,7 @@ from drf_spectacular.generators import SchemaGenerator
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from apps.core.models import OutboxEvent
+from apps.core.models import OutboxDelivery, OutboxEvent
 from apps.core.outbox import process_outbox_batch
 from apps.files import services
 from apps.files.models import PrivateFile
@@ -283,7 +283,10 @@ def test_deletion_retry_replay_and_error_hygiene(user, private_storage):
         assert process_outbox_batch() == 0
     event = OutboxEvent.objects.get()
     assert event.attempts == 1 and event.last_error_code == "OSError"
-    OutboxEvent.objects.filter(pk=event.pk).update(available_at=timezone.now())
+    due = timezone.now() - timedelta(seconds=1)
+    OutboxEvent.objects.filter(pk=event.pk).update(available_at=due)
+    # Retries belong to the subscriber now, not the aggregate event.
+    OutboxDelivery.objects.filter(event=event).update(available_at=due)
     assert process_outbox_batch() == 1
     services.delete_stored_object(record.pk)
     assert not private_storage.exists(record.object_key)
