@@ -1,5 +1,6 @@
 name: operations
-type: integration
+kind: support
+architecture: medium
 owns:
   - operational queue snapshots
   - operator-facing queue health classification

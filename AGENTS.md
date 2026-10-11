@@ -27,6 +27,13 @@ Use ports/adapters only for volatile boundaries such as external APIs, object
 storage, payments, identity providers, message brokers, or external
 notification providers.
 
+Keep each module's `module.yaml` authoritative: declare `kind`
+(`business`, `integration`, `support`) separately from `architecture`
+(`simple`, `medium`, `complex`). `depends_on` is for Python imports,
+not event subscriptions, and must remain acyclic. Keep simple modules free of
+unused `domain/`, `ports/`, and `adapters/` scaffolding. The legacy
+metadata `type` field is not supported.
+
 ## Changes
 
 Do not invent a second pattern when one already exists.

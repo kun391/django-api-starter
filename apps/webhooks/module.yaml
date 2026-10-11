@@ -1,5 +1,6 @@
 name: webhooks
-type: integration
+kind: integration
+architecture: medium
 owns:
   - tenant webhook subscriptions
   - signing-key versioning

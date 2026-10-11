@@ -1,5 +1,6 @@
 name: files
-type: medium
+kind: support
+architecture: medium
 owns:
   - private file metadata and upload policies
   - upload staging and deletion lifecycle

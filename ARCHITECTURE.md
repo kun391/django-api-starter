@@ -9,6 +9,40 @@ The architecture deliberately preserves Django's productivity. Framework
 abstraction is introduced only where complexity or dependency volatility
 justifies it.
 
+## Module metadata contract
+
+Every non-core module declares two **independent** fields in `module.yaml`:
+
+- `kind` describes responsibility: `business`, `integration`, or `support`.
+- `architecture` describes the current structural level: `simple`, `medium`,
+  or `complex`. This is not a ranking of business importance.
+
+For example, a module can be an `integration` with `medium` architecture.
+The metadata `type` field is retired because it mixed responsibilities with
+complexity. The generator's existing `--type` flag still selects a scaffold
+preset **temporarily**; that CLI flag is not a metadata classification.
+
+```yaml
+name: tickets
+kind: business
+architecture: medium
+depends_on:
+  - files
+  - organizations
+emits:
+  - tickets.ticket-created
+consumes: []
+```
+
+`scripts/check_architecture.py` enforces valid values, declared import
+boundaries, no duplicate/unknown dependencies and an acyclic `depends_on`
+graph. A `simple` module must not have `domain/`, `ports/` or `adapters/`
+directories. It deliberately does **not** infer `medium` or `complex`
+from a `services.py` file: complexity is a design choice and deeper checks
+require behavior-based tests. `depends_on` represents **Python code imports**,
+not event topics consumed at runtime. Producer/subscriber contracts are a
+separate concern for the outbox hardening PRs.
+
 ## Module maturity
 
 A module grows only as needed.

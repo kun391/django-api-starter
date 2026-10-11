@@ -1,5 +1,6 @@
 name: tickets
-type: domain
+kind: business
+architecture: medium
 owns:
   - support-style ticket workflow
   - ticket status and priority
