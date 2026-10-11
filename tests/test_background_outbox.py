@@ -11,12 +11,9 @@ from apps.core.models import OutboxEvent
 
 
 @pytest.fixture(autouse=True)
-def clean_handlers():
-    original = dict(outbox._HANDLERS)
-    outbox._HANDLERS.clear()
-    yield
-    outbox._HANDLERS.clear()
-    outbox._HANDLERS.update(original)
+def clean_handlers(monkeypatch):
+    # Isolate synthetic test topics without altering app startup subscriptions.
+    monkeypatch.setattr(outbox, "_SUBSCRIBERS", {})
 
 
 @pytest.mark.django_db(transaction=True)
