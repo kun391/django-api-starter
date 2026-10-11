@@ -130,3 +130,27 @@ def test_mixing_alias_and_new_flag_is_error(module_workspace, monkeypatch):
         create_module.main()
     assert exc.value.code == 2
     assert not (module_workspace / "module").exists()
+
+
+def test_cli_independent_metadata_overrides(module_workspace, monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "create_module.py",
+            "support_tools",
+            "--preset",
+            "crud",
+            "--kind",
+            "support",
+            "--architecture",
+            "medium",
+        ],
+    )
+    assert create_module.main() == 0
+    metadata = yaml.safe_load(
+        (module_workspace / "support_tools" / "module.yaml").read_text()
+    )
+    assert metadata["kind"] == "support"
+    assert metadata["architecture"] == "medium"
+    assert check_architecture.check() == []
