@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import uuid
@@ -97,18 +96,6 @@ def registered_subscriptions() -> dict[str, tuple[str, ...]]:
     }
 
 
-def outbox_handler(topic: str):
-    """Legacy decorator retained temporarily; prefer subscribe() with an ID."""
-
-    def decorator(handler: OutboxHandler) -> OutboxHandler:
-        identity = f"{handler.__module__}.{handler.__qualname__}"
-        stable_id = "legacy." + hashlib.sha256(identity.encode()).hexdigest()[:24]
-        subscribe(topic, handler, subscriber_id=stable_id)
-        return handler
-
-    return decorator
-
-
 def _validate_topic(topic: str) -> None:
     if not _TOPIC_RE.fullmatch(topic):
         raise ValueError(
@@ -167,19 +154,23 @@ def record_outbox_event(
     ))
     # Capture the subscriber set in the SAME transaction as the business event.
     # New registrations do not retroactively fan out an already-seeded event.
-    _seed_deliveries(event)
+    _create_deliveries(event)
     return event
 
 
 def _seed_deliveries(event: OutboxEvent) -> None:
     """Bootstrap legacy unpublished events without delivery rows at claim time.
 
-    Called under an event row lock by the worker; also safe at initial insert.
-    The existing set is immutable across app upgrades (unless an operator
-    deliberately requeues a dead or missing subscription).
+    Called under an event row lock by the worker. The existing set is
+    immutable across app upgrades (unless an operator deliberately requeues a
+    dead or missing subscription).
     """
     if OutboxDelivery.objects.filter(event=event).exists():
         return
+    _create_deliveries(event)
+
+
+def _create_deliveries(event: OutboxEvent) -> None:
     subscriptions = subscriptions_for(event.topic)
     if subscriptions:
         OutboxDelivery.objects.bulk_create(
@@ -467,8 +458,8 @@ def process_outbox_batch(*, batch_size: int | None = None) -> int:
             if key in {"traceparent", "tracestate"} and isinstance(value, str)
         }
         latest_error = ""
-        # Preserve the public PR #43 ordering contract. SQL lexical ordering
-        # must not override subscriber execution priorities.
+        # Order applies within this dispatch pass only; a retried subscriber
+        # may run after siblings that ran later in an earlier pass.
         due_ids = sorted(
             claimed.subscriber_ids,
             key=lambda subscriber_id: (

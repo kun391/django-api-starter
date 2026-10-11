@@ -86,12 +86,15 @@ A subscription is process-local and is registered at Django app startup. It
 does **not** require the producer app to be loaded first. Re-registering the
 same topic, subscriber ID, handler function and order is safe when
 `AppConfig.ready()` is called again. Reusing an ID for a different handler or
-order raises a configuration error. The retired single-handler decorator
-`outbox_handler()` remains available temporarily for backward compatibility;
-new modules must use `subscribe()` with an explicit stable subscriber ID.
+order raises a configuration error. Subscriber IDs must equal the owning
+module name or start with `<module>.` (for example `files.delete-stored-object`);
+the event contract check uses this prefix to attribute subscriptions.
 
-Subscribers execute in deterministic order: ascending `order`, then
-`subscriber_id` (default order 100). Use
+Within one dispatch pass, due subscribers run in ascending `order`, then
+`subscriber_id` (default order 100). Each subscriber retries independently,
+so `order` is not a dependency guarantee: a retried subscriber can run after
+a sibling with a higher `order` has already succeeded. Subscribers must not
+rely on side effects of another subscriber. Use
 `subscriptions_for(topic)` or `registered_subscriptions()` to inspect the
 read-only registration view. Module consumers should have no access to
 `_SUBSCRIBERS` or other private registry internals. Do not register a
@@ -144,6 +147,8 @@ A **subscriber delivery** failure:
 
 An event with **no registered subscribers** remains a retryable, unhandled event
 and can dead-letter at the event level. It is never marked as published silently.
+The event contract check therefore rejects an `emits` topic that no module
+`consumes`; declare and emit a topic only once it has a consumer.
 
 Defaults:
 
@@ -252,7 +257,10 @@ choose explicitly which mutations deserve a durable event.
 `uv run python -m scripts.check_event_contracts` loads the real Django
 `AppConfig.ready()` subscriptions and compares each consumer module's
 registrations with `module.yaml -> consumes`. Every consumed topic must be
-declared by a producer module's `emits`, and topic ownership is checked.
+declared by a producer module's `emits`, every emitted topic must have at
+least one consumer, and topic ownership is checked. A subscription belongs to
+the module named by its `subscriber_id` prefix, not to wherever its handler
+function happens to be defined.
 The optional literal-call AST scan catches common missing/unused producer
 declarations, but does **not** prove dynamically generated event topics,
 business emission semantics or runtime coverage. Behavior tests remain required.

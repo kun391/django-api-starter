@@ -47,9 +47,10 @@ def _subscription(user):
 def test_outbox_worker_crash_is_recovered_after_lease_expiry():
     received = []
 
-    @outbox.outbox_handler("resilience.test-created")
     def handle(envelope):
         received.append(envelope["id"])
+
+    outbox.subscribe("resilience.test-created", handle, subscriber_id="resilience.test")
 
     try:
         with transaction.atomic():
