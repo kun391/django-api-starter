@@ -1,8 +1,8 @@
-# Caching and performance foundation (Phase 10)
+# Caching and performance
 
 ## Scope and defaults
 
-This phase supplies opt-in read-model caching, commit-aware invalidation,
+This implementation provides opt-in read-model caching, commit-aware invalidation,
 conditional GET/HEAD, and SQL regression budgets. It does not turn caching on
 for every endpoint, add a mandatory service, or claim a measured latency gain.
 
@@ -31,7 +31,7 @@ configuration supports these native backends:
 LocMem invalidation does not cross processes. Never treat a LocMem development
 result as proof of multi-worker correctness. The native Redis backend requires
 the Redis client already present in the optional `async` extra; no new dependency
-or lockfile update is introduced by this phase.
+or lockfile update is required by the caching implementation.
 
 ```bash
 uv sync --locked --extra async --group dev
@@ -194,8 +194,8 @@ A matching `If-None-Match` (weak/strong list member or wildcard) produces an emp
 304 with ETag, cache policy, Vary and the current attempt's `X-Request-ID`. A
 changed/malformed/unmatched validator returns 200. HEAD has no body and retains
 the representation validator and GET content length. Django handles precondition
-ordering; failed read `If-Match` preconditions retain the Phase 7 412 Problem
-Details body (`precondition_failed`). Weak ETags are not write-concurrency tokens. Phase 15 adds a separate opt-in
+ordering; failed read `If-Match` preconditions retain the shared 412 Problem
+Details body (`precondition_failed`). Weak ETags are not write-concurrency tokens. The API contract also provides a separate opt-in
 strong resource ETag / If-Match contract for writes; see docs/api-contract.md.
 
 Errors, non-200 responses, writes, streams, non-JSON content, responses with
@@ -238,7 +238,7 @@ prefetched relationship, not grow per row. A filtered related-manager lookup may
 not reuse an unfiltered prefetch. Avoid `only`/`defer` on fields the serializer
 will subsequently access; that can introduce deferred-field queries.
 
-Retain strict pagination and stable ordering from Phase 7. Do not fetch an entire
+Retain strict pagination and stable ordering from the API contract. Do not fetch an entire
 QuerySet into a list before slicing. Avoid duplicate counts and avoid an `exists`
 call immediately before evaluating the same rows when it adds no value. For
 large/high-churn datasets, choose cursor pagination and count semantics as an
@@ -248,7 +248,7 @@ Review actual filter/order workload and query plans before adding indexes.
 Use QuerySet.explain and safe staging EXPLAIN (ANALYZE, BUFFERS) with representative
 data; ANALYZE executes the query. Consider composite ordering/tie-breakers,
 selectivity, write cost and concurrent index rollout. There is no speculative
-index or migration in this phase.
+index or migration in the default starter.
 
 For background/export work use bounded batches and iterator(chunk_size=...) when
 appropriate; do not expose unbounded synchronous exports through the API.
