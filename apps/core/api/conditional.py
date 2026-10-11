@@ -55,7 +55,7 @@ class ConditionalGetMixin(APIView):
         patch_vary_headers(response, ("Authorization", "Cookie", "Accept", "Accept-Language"))
         conditional = get_conditional_response(request, etag=response["ETag"], response=response)
         if conditional.status_code == 412:
-            # Keep Phase 7 Problem Details rather than Django's empty 412 body.
+            # Keep the API Problem Details contract rather than Django's empty 412 body.
             error = self.handle_exception(PreconditionFailed())
             return super().finalize_response(request, error, *args, **kwargs)
         if conditional.status_code == 304:
