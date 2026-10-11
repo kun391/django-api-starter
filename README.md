@@ -330,6 +330,12 @@ make module name=products type=crud
 make ai-context name=accounts
 ```
 
+Django's project composition lives in `config/` (`urls.py`, `wsgi.py`,
+optional `celery.py`, optional worker health diagnostic, and `gunicorn.py`).
+`apps/core` contains only platform primitives; CI prevents it from importing
+any business module or the composition root. See
+[ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Project structure
 
 ```text
@@ -337,7 +343,7 @@ make ai-context name=accounts
 |-- AGENTS.md
 |-- ARCHITECTURE.md
 |-- apps/                  # accounts, core, files
-|-- config/
+|-- config/                # project URL/WSGI/Celery/worker diagnostics
 |-- deploy/                # production env and single-edge proxy examples
 |-- settings/
 |-- scripts/               # module tooling, release gates, production smoke
