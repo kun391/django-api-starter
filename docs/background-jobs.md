@@ -102,14 +102,30 @@ application services. Delivery remains **at-least-once**; a worker can crash
 after an external side effect succeeds but before durable acknowledgement.
 Use the event UUID as the downstream idempotency key or maintain dedupe state.
 
-**PR #43 transition:** Registration supports multiple subscribers, but
-`OutboxEvent` still has **one event-level** lease, retry counter and dead-letter
-state. A subscriber exception stops the remaining subscribers for that attempt.
-On retry, previously successful subscribers run again, in the same order;
-a subscriber can therefore prevent a later one from progressing. Fanout
-services must remain idempotent. This is the existing delivery contract, not
-per-subscriber failure isolation. The subsequent delivery-state refactor
-will introduce separate persistent status/retries for each subscriber.
+**Durable delivery:** Each recorded event captures the process-local subscriber
+identities in the same business transaction as the event. A unique
+`OutboxDelivery(event_id, subscriber_id)` row stores its own `attempts`,
+`available_at`, `succeeded_at`, `dead_lettered_at`, lease token and
+sanitized `last_error_code`. Successful subscribers never run again merely
+because a sibling failed. A failed subscriber cannot prevent later subscribers
+from being attempted. Multiple workers can dispatch separate events concurrently;
+an event row lease is the serialization boundary for that event, and the
+per-delivery token fences late acknowledgements.
+
+The registry is a **code contract**, not an inbox history: an event is routed
+to the subscriber IDs captured when it was created. Adding a subscriber later
+does not replay already-seeded events. A queued event created by an older
+version without any delivery rows is seeded with the available subscriptions
+when first claimed. Missing code for a persisted subscriber ID is a retryable
+`LookupError`, never silently skipped. Changing or removing subscriber IDs
+requires a reviewed migration/rollout and a drain/inspection of pending rows.
+
+Event-level `OutboxEvent.published_at` is set only after **every** subscriber
+succeeds. When one delivery dead-letters and another remains retryable, the
+event itself remains pending until that other subscriber resolves; it becomes
+dead-lettered once no subscriber remains retryable. Event attempts and
+`last_error_code` are compatibility/summary fields, **not** a replacement for
+individual delivery state. No automatic dead-letter replay is attempted.
 
 There is no exactly-once claim.
 
@@ -119,12 +135,15 @@ Workers lease rows before invoking handlers. The lease lets multiple workers pol
 same PostgreSQL table without intentionally processing the same row concurrently.
 Expired leases are reclaimable after a worker crash.
 
-A failure:
-- increments `attempts`;
+A **subscriber delivery** failure:
+- increments that subscriber's `attempts` only;
 - stores only the exception class name in `last_error_code` (not an exception message);
-- clears the lease;
-- schedules exponential backoff;
-- dead-letters after `OUTBOX_MAX_ATTEMPTS`.
+- clears the per-subscriber lease;
+- schedules that delivery's exponential backoff independently;
+- dead-letters that delivery after `OUTBOX_MAX_ATTEMPTS` without affecting successful siblings.
+
+An event with **no registered subscribers** remains a retryable, unhandled event
+and can dead-letter at the event level. It is never marked as published silently.
 
 Defaults:
 
@@ -137,11 +156,17 @@ Defaults:
 | `OUTBOX_RETRY_MAX_SECONDS` | 3600 |
 | `OUTBOX_MAX_EVENT_BYTES` | 65536 |
 
-After remediation, explicitly requeue a dead-lettered event:
+After remediation, explicitly requeue the **failed subscriber**, not
+the whole event. The command refuses an active event lease and requires an exact
+subscriber ID when more than one delivery is dead-lettered:
 
 ```bash
-uv run python manage.py requeue_outbox <event-uuid>
+uv run python manage.py requeue_outbox <event-uuid> --subscriber-id notifications
 ```
+
+A legacy event with no subscriber rows still supports
+`requeue_outbox <event-uuid>`. On manual requeue only the selected subscriber's
+attempt counter is reset to zero. Successful deliveries remain terminal.
 
 ## Celery integration
 
@@ -221,3 +246,27 @@ CI covers:
 
 The reference foundation does not emit business events automatically. Product modules
 choose explicitly which mutations deserve a durable event.
+
+## Event metadata contract
+
+`uv run python -m scripts.check_event_contracts` loads the real Django
+`AppConfig.ready()` subscriptions and compares each consumer module's
+registrations with `module.yaml -> consumes`. Every consumed topic must be
+declared by a producer module's `emits`, and topic ownership is checked.
+The optional literal-call AST scan catches common missing/unused producer
+declarations, but does **not** prove dynamically generated event topics,
+business emission semantics or runtime coverage. Behavior tests remain required.
+
+## Rollout and migration safety
+
+The new `core.0005_outboxdelivery` migration is **additive** and does not rewrite
+old events. Run migrations as a serialized release step **before** starting
+new-version dispatch workers; coordinate a stop/drain of old outbox workers,
+deploy the new API and workers together, and only then resume dispatch.
+Do not run old and new dispatch code against the same queue during the cutover.
+Old pending events without delivery rows are lazily seeded at first claim. Events
+already marked published are left untouched. Already-running fanout may repeat
+once during upgrades or crashes; downstream deduplication is still required.
+Review queues, missing subscribers, and per-subscriber dead-letter alerts before
+enabling any retention policy. `operations/queues/` reports additional
+`outbox:<subscriber-id>` summary queues (counts/age/status only, no payloads).
