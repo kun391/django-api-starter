@@ -9,7 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.core import outbox
-from apps.core.models import OutboxEvent
+from apps.core.models import OutboxDelivery, OutboxEvent
 
 
 @pytest.fixture(autouse=True)
@@ -143,10 +143,9 @@ def test_multiple_subscribers_dispatch_once_in_stable_order():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_transitional_shared_retry_replays_completed_subscribers(settings):
-    """PR #44 must replace this shared retry behavior with per-subscriber state."""
+def test_failed_subscriber_retries_without_replaying_success(settings):
     settings.OUTBOX_RETRY_BASE_SECONDS = 1
-    calls = []
+    calls: list[str] = []
     state = {"fail": True}
 
     def webhooks(_envelope):
@@ -157,28 +156,44 @@ def test_transitional_shared_retry_replays_completed_subscribers(settings):
         if state["fail"]:
             raise RuntimeError("downstream-failure")
 
-    outbox.subscribe("tickets.ticket-updated", notifications, subscriber_id="notifications", order=20)
-    outbox.subscribe("tickets.ticket-updated", webhooks, subscriber_id="webhooks", order=10)
+    outbox.subscribe(
+        "tickets.ticket-updated", notifications,
+        subscriber_id="notifications", order=20,
+    )
+    outbox.subscribe(
+        "tickets.ticket-updated", webhooks,
+        subscriber_id="webhooks", order=10,
+    )
 
     with transaction.atomic():
-        event = outbox.record_outbox_event(topic="tickets.ticket-updated", payload={})
+        event = outbox.record_outbox_event(
+            topic="tickets.ticket-updated", payload={}
+        )
     assert outbox.process_outbox_batch() == 0
     event.refresh_from_db()
     assert event.published_at is None
     assert event.attempts == 1
     assert event.last_error_code == "RuntimeError"
-    assert calls[:2] == ["webhooks", "notifications"]
+    assert calls == ["webhooks", "notifications"]
+    assert OutboxDelivery.objects.get(
+        event=event, subscriber_id="webhooks"
+    ).succeeded_at is not None
+    failed = OutboxDelivery.objects.get(event=event, subscriber_id="notifications")
+    assert failed.succeeded_at is None
+    assert failed.attempts == 1
 
     state["fail"] = False
-    OutboxEvent.objects.filter(pk=event.pk).update(
-        available_at=timezone.now() - timedelta(seconds=1)
-    )
+    yesterday = timezone.now() - timedelta(seconds=1)
+    OutboxEvent.objects.filter(pk=event.pk).update(available_at=yesterday)
+    OutboxDelivery.objects.filter(
+        event=event, subscriber_id="notifications"
+    ).update(available_at=yesterday)
     assert outbox.process_outbox_batch() == 1
-    # Re-query; MyPy cannot infer that refresh_from_db() invalidates the earlier
-    # "published_at is None" narrowing.
     assert OutboxEvent.objects.get(pk=event.pk).published_at is not None
-    assert len(calls) == 4
-    assert calls[2:] == ["webhooks", "notifications"]
+    assert calls == ["webhooks", "notifications", "notifications"]
+    assert OutboxDelivery.objects.get(
+        event=event, subscriber_id="webhooks"
+    ).attempts == 1
 
 
 @pytest.mark.django_db(transaction=True)

@@ -116,12 +116,14 @@ def _query(category: RetentionCategory, *, now):
                 dead_lettered_at__isnull=True,
             )
             .filter(_lease_available(now))
+            .exclude(deliveries__locked_until__gt=now)
             .order_by("published_at", "pk")
         )
     if category.name == "outbox_dead_letter":
         return (
             OutboxEvent.objects.filter(dead_lettered_at__lte=cutoff)
             .filter(_lease_available(now))
+            .exclude(deliveries__locked_until__gt=now)
             .order_by("dead_lettered_at", "pk")
         )
     if category.name == "webhook_deliveries":

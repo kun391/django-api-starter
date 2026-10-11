@@ -10,6 +10,7 @@ from django.utils import timezone
 from apps.core.models import (
     AuditEvent,
     IdempotencyRecord,
+    OutboxDelivery,
     OutboxEvent,
     SecurityThrottleBucket,
 )
@@ -217,3 +218,27 @@ def test_management_command_is_dry_run_without_confirm(capsys):
     AuditEvent.objects.filter(pk=event.pk).update(occurred_at=_past())
     call_command("purge_retained_data", category="audit_events")
     assert AuditEvent.objects.filter(pk=event.pk).exists()
+
+
+@override_settings(RETENTION_OUTBOX_PUBLISHED_SECONDS=60)
+def test_retention_preserves_terminal_event_with_active_subscriber_lease():
+    event = OutboxEvent.objects.create(
+        topic="test.retained", payload={},
+        published_at=_past(),
+    )
+    delivery = OutboxDelivery.objects.create(
+        event=event,
+        subscriber_id="test-worker",
+        succeeded_at=_past(),
+        locked_until=timezone.now() + timedelta(minutes=5),
+        lock_token=uuid.uuid4(),
+    )
+    assert retention_plan(category="outbox_published")[0].candidates == 0
+    purge_retained_data(category="outbox_published", confirm=True)
+    assert OutboxEvent.objects.filter(pk=event.pk).exists()
+    delivery.locked_until = None
+    delivery.lock_token = None
+    delivery.save(update_fields=["locked_until", "lock_token"])
+    assert purge_retained_data(category="outbox_published", confirm=True)[0].deleted >= 1
+    assert not OutboxEvent.objects.filter(pk=event.pk).exists()
+    assert not OutboxDelivery.objects.filter(pk=delivery.pk).exists()

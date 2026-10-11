@@ -53,6 +53,39 @@ class OutboxEvent(models.Model):
         ]
 
 
+class OutboxDelivery(models.Model):
+    """One durable at-least-once delivery per event/subscriber pair.
+
+    A succeeded subscriber is not retried because another subscriber failed.
+    """
+
+    event = models.ForeignKey(
+        OutboxEvent, on_delete=models.CASCADE, related_name="deliveries"
+    )
+    subscriber_id = models.CharField(max_length=96)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    available_at = models.DateTimeField(default=timezone.now, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    succeeded_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    dead_lettered_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    locked_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    lock_token = models.UUIDField(null=True, blank=True)
+    last_error_code = models.CharField(max_length=128, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "subscriber_id"], name="core_outbox_subscriber_uq"
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["succeeded_at", "dead_lettered_at", "available_at"],
+                name="core_outbox_delivery_ready",
+            ),
+        ]
+
+
 class AuditEvent(models.Model):
     """Append-only application audit history for successful business mutations."""
 
