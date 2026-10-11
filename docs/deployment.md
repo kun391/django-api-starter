@@ -1,9 +1,9 @@
-# Deployment and release foundation (Phase 12)
+# Deployment and release
 
 This guide describes the files that actually exist in this starter. The former
 provider shopping list and nonexistent docker-compose.prod.yml examples are
 replaced by one tested container contract. No production infrastructure is
-created just by merging this phase.
+provisioned by this repository.
 
 ## Deployment contract
 
@@ -96,7 +96,7 @@ container smoke uses filesystem storage and no broker.
 
 After merge and successful **main push CI**, run `Publish release images` from
 `main` in GitHub Actions. Supply a full 40-character merged `sha` and a stable
-version such as `v0.1.0`. This phase does not run that workflow automatically.
+version such as `v0.1.0`. The starter does not run that workflow automatically.
 
 The gate rejects non-main workflow refs, invalid input, unmerged/non-ancestor
 commits, commits lacking the smoke harness, non-push/fork CI, a failed/latest
@@ -147,7 +147,7 @@ a collector, Grafana or Tempo. Collector health is not folded into
 `/health/ready/`: PostgreSQL remains the API readiness dependency. A telemetry
 backend outage must not change business request outcomes.
 
-See [Phase 23 telemetry](telemetry.md) for signal names, trace propagation and
+See [OpenTelemetry](telemetry.md) for signal names, trace propagation and
 cardinality/privacy constraints.
 
 ## Configure runtime and the trusted edge
@@ -252,7 +252,7 @@ shutdown settings and coordinate worker/scheduler rollout separately.
 
 ## Compatibility gate before release
 
-Pull requests run the Phase 17 API/database compatibility gate before merge.
+Pull requests run the API/database compatibility gate before merge.
 OpenAPI is generated independently from the PR and its exact base SHA. Changed
 migration files are inspected for destructive/rename/required-add and lock-sensitive
 operations.
@@ -303,7 +303,7 @@ automatically populated from development media/private volumes.
 
 Web and cleanup processes must share the SAME persistent storage. Single-host
 Docker volumes do not become shared multi-host storage by increasing replicas.
-Use the Phase 11 S3 backend or explicitly managed shared storage for that design.
+Use the supported S3 backend or explicitly managed shared storage for that design.
 Changing PRIVATE_FILE_BACKEND/bucket/root does not migrate existing objects.
 
 Without Celery, schedule these bounded commands with the platform's scheduler,
@@ -323,7 +323,7 @@ docker compose -p "$DEPLOY_PROJECT" -f compose.production.yaml run --rm --no-dep
   python manage.py purge_retained_data --category all --batch-size 1000 --confirm
 ```
 
-The Phase 21 retention command also covers expired idempotency/security-throttle
+The retention command also covers expired idempotency/security-throttle
 records, so deployments may keep the older dedicated purge commands for backward
 compatibility or replace them with the unified scheduler. Do not run both at
 high frequency without reason. History categories remain disabled until their
@@ -352,7 +352,7 @@ After an isolated restore: verify schema history/preflight, representative auth
 and private-file reads, object/version correspondence, and the consequences of
 replaying outstanding outbox events. Only then plan a controlled cutover.
 `pg_dump`/PITR/object versioning and backup credentials belong to infrastructure;
-no production backup, restore or bucket policy has been executed by this phase.
+no production backup, restore or bucket policy has been executed by this starter.
 
 Keep the existing structured application logs and request IDs; alert on sustained
 5xx/readiness failure, PostgreSQL saturation, outbox dead letters, storage errors,
