@@ -9,6 +9,27 @@ The architecture deliberately preserves Django's productivity. Framework
 abstraction is introduced only where complexity or dependency volatility
 justifies it.
 
+## Project composition root
+
+`config/` owns project-level wiring: `urls.py` composes app APIs and
+health routes; `wsgi.py` creates the web application; `celery.py` starts
+the optional async task app; `health.py` provides the optional Celery
+diagnostic endpoint; and `gunicorn.py` is the web-process configuration.
+Django settings select `config.urls` and `config.wsgi.application`;
+production images/Compose use `config.wsgi:application` and
+`config.celery:app`. Business routes and the public `/health/celery/`
+contract remain unchanged.
+
+`apps/core` contains reusable platform primitives (error contracts, audit,
+outbox, caching, observability, health readiness). It is **not** the URL
+assembly or runtime entrypoint. The architecture checker rejects direct
+imports from `apps/core` into any other `apps/<module>` or into
+`config/`; it also recognizes `from apps import <module>` and common
+literal dynamic imports. Django's project composition code in `config/`
+may import all modules; business modules may only import dependencies
+declared in their `module.yaml`. This is a code import boundary, not an
+event subscription restriction.
+
 ## Module metadata contract
 
 Every non-core module declares two **independent** fields in `module.yaml`:
