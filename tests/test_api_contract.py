@@ -67,7 +67,7 @@ class TestAPIContract:
         assert user.first_name != "No CSRF"
 
     def test_nested_validation_and_retry_after(self, api_client, settings):
-        settings.ROOT_URLCONF = "tests.phase7_urls"
+        settings.ROOT_URLCONF = "tests.failure_urls"
         response = api_client.get("/api/v1/test-failure/validation/")
         body = assert_problem(response, 400, "validation_error")
         assert {error["attr"] for error in body["errors"]} == {"items.0.email", None}
@@ -77,7 +77,7 @@ class TestAPIContract:
 
     @pytest.mark.parametrize("kind,status_code,code", [("unexpected", 500, "internal_error"), ("bad-request", 400, "bad_request")])
     def test_framework_failures_do_not_leak_details(self, api_client, settings, caplog, kind, status_code, code):
-        settings.ROOT_URLCONF = "tests.phase7_urls"
+        settings.ROOT_URLCONF = "tests.failure_urls"
         api_client.raise_request_exception = False
         response = api_client.get(f"/api/v1/test-failure/{kind}/", HTTP_X_REQUEST_ID="error-trace-7")
         assert_problem(response, status_code, code)
