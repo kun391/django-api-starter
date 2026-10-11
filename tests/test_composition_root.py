@@ -4,6 +4,7 @@ from importlib import import_module
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from django.conf import settings
 from django.urls import resolve, reverse
 
@@ -57,8 +58,6 @@ def test_optional_celery_health_stays_unavailable_in_minimal_runtime(api_client)
 
 
 def test_optional_celery_entrypoint_when_extra_installed():
-    import pytest
-
     pytest.importorskip("celery")
     from config.celery import app
 
